@@ -762,12 +762,20 @@
         async function loadData() {
             showLoading('載入資料中...');
             try {
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('網路錯誤');
+                // Add timeout of 30 seconds
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
                 
-                salesData = await response.json();
+                const response = await fetch(API_URL, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) throw new Error('網路錯誤: ' + response.status);
+                
+                const rawData = await response.json();
+                console.log('Loaded data:', rawData.length, 'records');
+                
                 // Ensure all fields are strings
-                salesData = salesData.map(d => ({
+                salesData = rawData.map(d => ({
                     id: String(d.id || ''),
                     date: String(d.date || ''),
                     buyer: String(d.buyer || ''),
@@ -778,14 +786,18 @@
                 
                 filteredData = [...salesData];
                 updateSyncStatus(true);
-                init();
                 hideLoading();
+                init();
                 showToast('✓ 已同步 ' + salesData.length + ' 筆資料');
             } catch (error) {
                 console.error('Error loading data:', error);
                 updateSyncStatus(false);
                 hideLoading();
-                showToast('⚠️ 無法載入資料: ' + error.message);
+                if (error.name === 'AbortError') {
+                    showToast('⚠️ 載入超時，請重新整理頁面');
+                } else {
+                    showToast('⚠️ 無法載入資料: ' + error.message);
+                }
             }
         }
         
