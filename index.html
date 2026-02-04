@@ -1296,9 +1296,9 @@
             }
             
             showToast('✓ 已辨識，請確認資訊');
-        });
+        }
         
-        function saveQuickRecord() {
+        async function saveQuickRecord() {
             const dateInput = document.getElementById('quick-date').value;
             const buyer = document.getElementById('quick-buyer').value.trim();
             const shippingType = document.getElementById('quick-shipping-type').value;
