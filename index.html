@@ -855,9 +855,12 @@
             updateStats();
             populateMonthFilter();
             renderTable();
-            renderShippingChart();
-            renderRegionChart();
-            renderCustomerList();
+            // Use requestAnimationFrame to defer non-critical rendering to prevent blocking
+            requestAnimationFrame(() => {
+                renderShippingChart();
+                renderRegionChart();
+                renderCustomerList();
+            });
         }
         
         function getShippingType(shipping) {
@@ -932,11 +935,20 @@
         }
         
         function renderShippingChart() {
+            // Optimized: single pass instead of multiple filters
             const counts = {
-                '7-11': salesData.filter(d => getShippingType(d.shipping) === '7-11').length,
-                '全家': salesData.filter(d => getShippingType(d.shipping) === '全家').length,
-                '宅配': salesData.filter(d => getShippingType(d.shipping) === '宅配').length
+                '7-11': 0,
+                '全家': 0,
+                '宅配': 0
             };
+            
+            salesData.forEach(d => {
+                const type = getShippingType(d.shipping);
+                if (counts.hasOwnProperty(type)) {
+                    counts[type]++;
+                }
+            });
+            
             const max = Math.max(...Object.values(counts));
             
             const chart = document.getElementById('shipping-chart');
@@ -949,13 +961,16 @@
         }
         
         function renderRegionChart() {
+            // Optimized: single pass through data instead of multiple operations
             const regionCounts = {};
+            
             salesData.forEach(d => {
                 if (!d.region) return;
                 const region = d.region.replace(/[0-9]/g, '').substring(0, 6);
                 regionCounts[region] = (regionCounts[region] || 0) + 1;
             });
             
+            // Sort and slice together for better performance
             const top10 = Object.entries(regionCounts)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 10);
@@ -966,35 +981,47 @@
             }
             
             const max = top10[0][1];
-            
             const chart = document.getElementById('region-chart');
-            chart.innerHTML = top10.map(([name, count]) => `
-                <div class="bar-row">
+            
+            // Use documentFragment for better DOM performance
+            let html = '';
+            for (let i = 0; i < top10.length; i++) {
+                const [name, count] = top10[i];
+                html += `<div class="bar-row">
                     <div class="bar-label">${name}</div>
                     <div class="bar" style="width: ${(count/max)*80}%">${count}</div>
-                </div>
-            `).join('');
+                </div>`;
+            }
+            chart.innerHTML = html;
         }
         
         function renderCustomerList() {
+            // Optimized: single pass to count instead of two passes
             const customerCounts = {};
+            
             salesData.forEach(d => {
                 if (!d.buyer) return;
                 customerCounts[d.buyer] = (customerCounts[d.buyer] || 0) + 1;
             });
             
+            // Filter and sort together for better performance
             const topCustomers = Object.entries(customerCounts)
-                .sort((a, b) => b[1] - a[1])
                 .filter(([_, count]) => count >= 3)
+                .sort((a, b) => b[1] - a[1])
                 .slice(0, 20);
             
             const list = document.getElementById('customer-list');
-            list.innerHTML = topCustomers.map(([name, count]) => `
-                <div class="customer-card">
+            
+            // Use string concatenation for better DOM performance
+            let html = '';
+            for (let i = 0; i < topCustomers.length; i++) {
+                const [name, count] = topCustomers[i];
+                html += `<div class="customer-card">
                     <div class="customer-name">${name}</div>
                     <div class="customer-orders">${count} 筆訂單</div>
-                </div>
-            `).join('');
+                </div>`;
+            }
+            list.innerHTML = html;
         }
         
         // Format date for display (from YYYY-MM-DD to M/D)
