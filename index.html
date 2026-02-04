@@ -8,6 +8,8 @@
     <meta name="apple-mobile-web-app-title" content="銷售紀錄">
     <title>銷售紀錄 Sales Records</title>
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%234A90D9' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>📦</text></svg>">
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -1137,8 +1139,8 @@
             document.getElementById('quick-modal').classList.remove('active');
         }
         
-        // Handle photo selection/capture (optional reference only)
-        document.getElementById('photoInput').addEventListener('change', function(e) {
+        // Handle photo selection/capture with OCR
+        document.getElementById('photoInput').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
             
@@ -1147,15 +1149,101 @@
             
             // Show preview
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 preview.src = e.target.result;
                 preview.style.display = 'block';
                 inputWrapper.style.display = 'none';
+                
+                // Start OCR
+                showLoading('辨識中...');
+                try {
+                    const worker = await Tesseract.createWorker('chi_tra+eng', 1, {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                const pct = Math.round(m.progress * 100);
+                                document.getElementById('loading-text').textContent = '辨識中... ' + pct + '%';
+                            }
+                        }
+                    });
+                    
+                    const { data: { text } } = await worker.recognize(file);
+                    await worker.terminate();
+                    
+                    hideLoading();
+                    parseOCRText(text);
+                } catch (error) {
+                    console.error('OCR Error:', error);
+                    hideLoading();
+                    showToast('⚠️ OCR 辨識失敗，請手動輸入');
+                }
             };
             reader.readAsDataURL(file);
         });
         
-        async function saveQuickRecord() {
+        // Parse OCR text and auto-fill form
+        function parseOCRText(text) {
+            const fullText = text.toUpperCase();
+            let shippingType = '全家';
+            let region = '';
+            let buyer = '';
+            
+            // 檢查貨運方式
+            if (fullText.includes('7-11') || fullText.includes('711')) {
+                shippingType = '7-11';
+                
+                // 提取7-11店名 (通常在7-11後面)
+                const match711 = text.match(/7-?11\s*[（(]?([^)）\n]*)/i);
+                if (match711) {
+                    region = match711[1].trim().replace(/[0-9\s]/g, '').substring(0, 10);
+                }
+            } else if (fullText.includes('全家') || fullText.includes('FAMILYMART')) {
+                shippingType = '全家';
+                
+                // 提取全家店名
+                const matchFamily = text.match(/全家\s*[（(]?([^)）\n]*)/);
+                if (matchFamily) {
+                    region = matchFamily[1].trim().replace(/[0-9\s]/g, '').substring(0, 10);
+                }
+            } else if (fullText.includes('路') || fullText.includes('街') || fullText.includes('里') || fullText.includes('號')) {
+                // 如果有完整地址，認定為宅配
+                shippingType = '宅配';
+                
+                // 提取地區（取前幾個有意義的字）
+                const addressMatch = text.match(/([\u4e00-\u9fff]{2,6}[縣市]?[\u4e00-\u9fff]{1,6})/);
+                if (addressMatch) {
+                    region = addressMatch[1].substring(0, 8);
+                }
+            }
+            
+            // 嘗試提取買家姓名（通常是2-4個中文字）
+            const nameMatches = text.match(/([\u4e00-\u9fff]{2,4})/g);
+            if (nameMatches) {
+                for (const name of nameMatches) {
+                    if (name.length >= 2 && name.length <= 4 && 
+                        !name.includes('號') && !name.includes('路') && 
+                        !name.includes('街') && !name.includes('里')) {
+                        buyer = name;
+                        break;
+                    }
+                }
+            }
+            
+            // 填入表單
+            document.getElementById('quick-buyer').value = buyer;
+            document.getElementById('quick-shipping-type').value = shippingType;
+            document.getElementById('quick-region').value = region;
+            
+            if (shippingType === '宅配') {
+                document.getElementById('quick-shipping-cost').value = '37';
+                document.getElementById('quick-full-address').value = text;
+            } else {
+                document.getElementById('quick-shipping-cost').value = '60';
+            }
+            
+            showToast('✓ 已辨識，請確認資訊');
+        });
+        
+        function saveQuickRecord() {
             const dateInput = document.getElementById('quick-date').value;
             const buyer = document.getElementById('quick-buyer').value.trim();
             const shippingType = document.getElementById('quick-shipping-type').value;
