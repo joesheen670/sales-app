@@ -1036,11 +1036,12 @@
             list.innerHTML = html;
         }
         
-        // Format date for display (from YYYY-MM-DD to M/D)
+        // Format date for display (from YYYY-MM-DD to M/D/YYYY)
         function formatDateForDisplay(dateStr) {
             if (dateStr.includes('-')) {
                 const parts = dateStr.split('-');
-                return parseInt(parts[1]) + '/' + parseInt(parts[2]);
+                // Format: M/D/YYYY
+                return parseInt(parts[1]) + '/' + parseInt(parts[2]) + '/' + parts[0];
             }
             return dateStr;
         }
@@ -1249,46 +1250,62 @@
         
         // Parse OCR text and auto-fill form
         function parseOCRText(text) {
-            const fullText = text.toUpperCase();
+            // 清理OCR文字：移除多餘空白和換行
+            const cleanText = text.replace(/\s+/g, ' ').trim();
+            const fullText = cleanText.toUpperCase();
             let shippingType = '全家';
             let region = '';
             let buyer = '';
             
-            // 檢查貨運方式
-            if (fullText.includes('7-11') || fullText.includes('711')) {
+            console.log('OCR原始文字:', text);
+            console.log('OCR清理後:', cleanText);
+            
+            // 檢查貨運方式 - 更寬鬆的匹配
+            if (fullText.includes('7-11') || fullText.includes('711') || fullText.includes('7-') || fullText.includes('ELEVEN')) {
                 shippingType = '7-11';
                 
-                // 提取7-11店名 (通常在7-11後面)
-                const match711 = text.match(/7-?11\s*[（(]?([^)）\n]*)/i);
-                if (match711) {
-                    region = match711[1].trim().replace(/[0-9\s]/g, '').substring(0, 10);
+                // 提取7-11店名 - 多種格式
+                const match711 = cleanText.match(/7-?11[\s\-]*(店|門市)?[（(]?([^)）\n,，]{2,15})/i);
+                if (match711 && match711[2]) {
+                    region = match711[2].trim().replace(/[0-9\s]/g, '').substring(0, 10);
                 }
-            } else if (fullText.includes('全家') || fullText.includes('FAMILYMART')) {
+            } else if (fullText.includes('全家') || fullText.includes('FAMILY') || fullText.includes('全宗')) {
                 shippingType = '全家';
                 
                 // 提取全家店名
-                const matchFamily = text.match(/全家\s*[（(]?([^)）\n]*)/);
-                if (matchFamily) {
-                    region = matchFamily[1].trim().replace(/[0-9\s]/g, '').substring(0, 10);
+                const matchFamily = cleanText.match(/全[家宗][\s]*(店|門市)?[（(]?([^)）\n,，]{2,15})/);
+                if (matchFamily && matchFamily[2]) {
+                    region = matchFamily[2].trim().replace(/[0-9\s]/g, '').substring(0, 10);
                 }
-            } else if (fullText.includes('路') || fullText.includes('街') || fullText.includes('里') || fullText.includes('號')) {
+            } else if (fullText.includes('路') || fullText.includes('街') || fullText.includes('里') || fullText.includes('號') || fullText.includes('巷') || fullText.includes('弄')) {
                 // 如果有完整地址，認定為宅配
                 shippingType = '宅配';
                 
-                // 提取地區（取前幾個有意義的字）
-                const addressMatch = text.match(/([\u4e00-\u9fff]{2,6}[縣市]?[\u4e00-\u9fff]{1,6})/);
-                if (addressMatch) {
-                    region = addressMatch[1].substring(0, 8);
+                // 提取縣市區（更精確）
+                const cityMatch = cleanText.match(/([\u4e00-\u9fff]{2,3}[縣市])/);
+                const distMatch = cleanText.match(/([\u4e00-\u9fff]{2,3}[區鄉鎮市])/);
+                if (cityMatch && distMatch) {
+                    region = cityMatch[1].replace('縣','').replace('市','') + distMatch[1].replace('區','').replace('鄉','').replace('鎮','').replace('市','');
+                } else if (cityMatch) {
+                    region = cityMatch[1];
+                } else if (distMatch) {
+                    region = distMatch[1];
                 }
             }
             
-            // 嘗試提取買家姓名（通常是2-4個中文字）
-            const nameMatches = text.match(/([\u4e00-\u9fff]{2,4})/g);
+            // 嘗試提取買家姓名（通常是2-4個中文字，排除地址相關詞）
+            const excludeWords = ['號', '路', '街', '里', '巷', '弄', '樓', '層', '縣', '市', '區', '鄉', '鎮', '村', '全家', '門市', '店名', '收件', '寄件'];
+            const nameMatches = cleanText.match(/([\u4e00-\u9fff]{2,4})/g);
             if (nameMatches) {
                 for (const name of nameMatches) {
-                    if (name.length >= 2 && name.length <= 4 && 
-                        !name.includes('號') && !name.includes('路') && 
-                        !name.includes('街') && !name.includes('里')) {
+                    let isValid = name.length >= 2 && name.length <= 4;
+                    for (const word of excludeWords) {
+                        if (name.includes(word)) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                    if (isValid) {
                         buyer = name;
                         break;
                     }
@@ -1300,14 +1317,16 @@
             document.getElementById('quick-shipping-type').value = shippingType;
             document.getElementById('quick-region').value = region;
             
+            // 把原始OCR文字放入完整地址欄位供參考
+            document.getElementById('quick-full-address').value = cleanText;
+            
             if (shippingType === '宅配') {
                 document.getElementById('quick-shipping-cost').value = '37';
-                document.getElementById('quick-full-address').value = text;
             } else {
                 document.getElementById('quick-shipping-cost').value = '60';
             }
             
-            showToast('✓ 已辨識，請確認資訊');
+            showToast('✓ 已辨識，請確認並修正資訊');
         }
         
         async function saveQuickRecord() {
