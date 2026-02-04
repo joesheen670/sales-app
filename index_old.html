@@ -8,6 +8,8 @@
     <meta name="apple-mobile-web-app-title" content="銷售紀錄">
     <title>銷售紀錄 Sales Records</title>
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%234A90D9' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>📦</text></svg>">
+    <!-- Load data from external file -->
+    <script src="data.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -20,40 +22,6 @@
             padding: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-        }
-        
-        /* Loading Overlay */
-        .loading-overlay {
-            display: flex;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            z-index: 2000;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            color: white;
-        }
-        
-        .loading-overlay.hidden {
-            display: none;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
         }
         
         /* Modal Styles */
@@ -80,8 +48,6 @@
             padding: 30px;
             width: 90%;
             max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
         
@@ -102,8 +68,7 @@
         }
         
         .form-group input,
-        .form-group select,
-        .form-group textarea {
+        .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -111,14 +76,8 @@
             font-size: 16px;
         }
         
-        .form-group textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
-        
         .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
+        .form-group select:focus {
             outline: none;
             border-color: #4A90D9;
         }
@@ -154,12 +113,6 @@
             transform: scale(1.02);
         }
         
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
         .add-btn {
             background: linear-gradient(135deg, #7ED321, #5FB318);
             color: white;
@@ -175,42 +128,6 @@
         }
         
         .add-btn:hover {
-            transform: scale(1.02);
-        }
-        
-        .quick-btn {
-            background: linear-gradient(135deg, #FF6B6B, #EE5A5A);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .quick-btn:hover {
-            transform: scale(1.02);
-        }
-        
-        .sync-btn {
-            background: linear-gradient(135deg, #9B59B6, #8E44AD);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .sync-btn:hover {
             transform: scale(1.02);
         }
         
@@ -245,6 +162,40 @@
             background: #ff3344;
         }
         
+        /* Quick Add Styles */
+        .quick-btn {
+            background: linear-gradient(135deg, #FF6B6B, #EE5A5A);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .quick-btn:hover {
+            transform: scale(1.02);
+        }
+        
+        .camera-modal {
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .captured-image {
+            width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            margin-bottom: 15px;
+        }
+        
         .file-input-wrapper {
             position: relative;
             display: inline-block;
@@ -260,7 +211,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 30px 20px;
             background: #f8f9fa;
             border: 3px dashed #4A90D9;
             border-radius: 15px;
@@ -275,7 +226,7 @@
         
         .file-input-icon {
             font-size: 36px;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
         
         .file-input-text {
@@ -287,18 +238,9 @@
         .file-input-subtext {
             color: #999;
             font-size: 12px;
-            margin-top: 3px;
+            margin-top: 5px;
         }
-        
-        .captured-image {
-            width: 100%;
-            max-height: 150px;
-            object-fit: contain;
-            border-radius: 10px;
-            border: 2px solid #e0e0e0;
-            margin-bottom: 15px;
-        }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -520,22 +462,6 @@
             font-weight: bold;
         }
         
-        .sync-status {
-            font-size: 12px;
-            color: #666;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .sync-status.online {
-            color: #7ED321;
-        }
-        
-        .sync-status.offline {
-            color: #FF6B6B;
-        }
-        
         @media (max-width: 768px) {
             .stats {
                 grid-template-columns: repeat(2, 1fr);
@@ -552,12 +478,6 @@
     </style>
 </head>
 <body>
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loading">
-        <div class="spinner"></div>
-        <div id="loading-text">載入資料中...</div>
-    </div>
-
     <!-- Add Record Modal -->
     <div class="modal-overlay" id="add-modal">
         <div class="modal">
@@ -583,16 +503,12 @@
                 <input type="number" id="new-shipping-cost" placeholder="60" value="60">
             </div>
             <div class="form-group">
-                <label>地區 / 門市</label>
+                <label>住址地區 / 門市</label>
                 <input type="text" id="new-region" placeholder="高雄楠梓">
-            </div>
-            <div class="form-group">
-                <label>完整地址 (選填，宅配用)</label>
-                <textarea id="new-full-address" placeholder="完整收件地址"></textarea>
             </div>
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeModal()">取消</button>
-                <button class="btn btn-primary" id="add-btn" onclick="addRecord()">✓ 新增</button>
+                <button class="btn btn-primary" onclick="addRecord()">✓ 新增</button>
             </div>
         </div>
     </div>
@@ -600,9 +516,9 @@
     <!-- Toast notification -->
     <div class="toast" id="toast">已新增紀錄!</div>
     
-    <!-- Quick Add Modal -->
+    <!-- Quick Add Modal (簡化版，無 OCR) -->
     <div class="modal-overlay" id="quick-modal">
-        <div class="modal">
+        <div class="modal camera-modal">
             <h2>📝 快速新增</h2>
             
             <!-- Optional Photo Reference -->
@@ -643,14 +559,10 @@
                 <label>地址/門市</label>
                 <input type="text" id="quick-region" placeholder="地區或門市名稱">
             </div>
-            <div class="form-group">
-                <label>完整地址 (選填)</label>
-                <textarea id="quick-full-address" placeholder="完整收件地址"></textarea>
-            </div>
             
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeQuickModal()">取消</button>
-                <button class="btn btn-primary" id="quick-save-btn" onclick="saveQuickRecord()">✓ 儲存紀錄</button>
+                <button class="btn btn-primary" onclick="saveQuickRecord()">✓ 儲存紀錄</button>
             </div>
         </div>
     </div>
@@ -667,14 +579,11 @@
             <header>
                 <h1>📦 銷售紀錄 Sales Records</h1>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 10px;">
                         <button class="add-btn" onclick="openModal()">➕ 新增紀錄</button>
                         <button class="quick-btn" onclick="openQuickModal()">📝 快速新增</button>
-                        <button class="sync-btn" onclick="loadData()">🔄 同步資料</button>
                     </div>
-                    <span class="sync-status" id="sync-status">
-                        <span>☁️</span> 連接 Google Sheets
-                    </span>
+                    <span style="color: #666; font-size: 14px;">資料自動儲存於本機</span>
                 </div>
                 <div class="stats">
                     <div class="stat-card">
@@ -752,104 +661,16 @@
     </div>
     
     <script>
-        // Google Sheets API URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxAjT6RSzctFMWH-aGjnZ-QMB-M6IDVWwzAh54Hy-4GgnGmtShUilU4dIKax7V6EH_viA/exec';
+        // initialData is loaded from data.js
         
-        let salesData = [];
-        let filteredData = [];
+        // Load from localStorage or use initial data
+        let salesData = JSON.parse(localStorage.getItem('salesData')) || [...initialData];
         
-        // Load data from Google Sheets
-        async function loadData() {
-            showLoading('載入資料中...');
-            try {
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('網路錯誤');
-                
-                salesData = await response.json();
-                // Ensure all fields are strings
-                salesData = salesData.map(d => ({
-                    id: String(d.id || ''),
-                    date: String(d.date || ''),
-                    buyer: String(d.buyer || ''),
-                    shipping: String(d.shipping || ''),
-                    region: String(d.region || ''),
-                    full_address: String(d.full_address || d.Full_Address || '')
-                }));
-                
-                filteredData = [...salesData];
-                updateSyncStatus(true);
-                init();
-                hideLoading();
-                showToast('✓ 已同步 ' + salesData.length + ' 筆資料');
-            } catch (error) {
-                console.error('Error loading data:', error);
-                updateSyncStatus(false);
-                hideLoading();
-                showToast('⚠️ 無法載入資料: ' + error.message);
-            }
+        function saveData() {
+            localStorage.setItem('salesData', JSON.stringify(salesData));
         }
         
-        // Add record to Google Sheets
-        async function addRecordToSheet(record) {
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'add',
-                        ...record
-                    })
-                });
-                return true;
-            } catch (error) {
-                console.error('Error adding record:', error);
-                return false;
-            }
-        }
-        
-        // Delete record from Google Sheets
-        async function deleteRecordFromSheet(id) {
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'delete',
-                        id: id
-                    })
-                });
-                return true;
-            } catch (error) {
-                console.error('Error deleting record:', error);
-                return false;
-            }
-        }
-        
-        function showLoading(text) {
-            document.getElementById('loading-text').textContent = text || '處理中...';
-            document.getElementById('loading').classList.remove('hidden');
-        }
-        
-        function hideLoading() {
-            document.getElementById('loading').classList.add('hidden');
-        }
-        
-        function updateSyncStatus(online) {
-            const status = document.getElementById('sync-status');
-            if (online) {
-                status.innerHTML = '<span>✅</span> 已連接 Google Sheets';
-                status.className = 'sync-status online';
-            } else {
-                status.innerHTML = '<span>❌</span> 離線模式';
-                status.className = 'sync-status offline';
-            }
-        }
+        let filteredData = [...salesData];
         
         function init() {
             updateStats();
@@ -861,7 +682,6 @@
         }
         
         function getShippingType(shipping) {
-            if (!shipping) return 'other';
             if (shipping.includes('7-11')) return '7-11';
             if (shipping.includes('全家')) return '全家';
             if (shipping.includes('宅配')) return '宅配';
@@ -876,13 +696,8 @@
         }
         
         function populateMonthFilter() {
-            const months = [...new Set(salesData.map(d => {
-                if (!d.date) return null;
-                return d.date.split('/')[0];
-            }).filter(m => m))].sort((a,b) => parseInt(a) - parseInt(b));
-            
+            const months = [...new Set(salesData.map(d => d.date.split('/')[0]))].sort((a,b) => parseInt(a) - parseInt(b));
             const select = document.getElementById('month-filter');
-            select.innerHTML = '<option value="">全部月份</option>';
             months.forEach(m => {
                 const option = document.createElement('option');
                 option.value = m;
@@ -897,9 +712,9 @@
             const month = document.getElementById('month-filter').value;
             
             filteredData = salesData.filter(d => {
-                const matchSearch = (d.buyer || '').toLowerCase().includes(search) || (d.region || '').toLowerCase().includes(search);
-                const matchShipping = !shipping || (d.shipping || '').includes(shipping);
-                const matchMonth = !month || (d.date || '').startsWith(month + '/');
+                const matchSearch = d.buyer.toLowerCase().includes(search) || d.region.toLowerCase().includes(search);
+                const matchShipping = !shipping || d.shipping.includes(shipping);
+                const matchMonth = !month || d.date.startsWith(month + '/');
                 return matchSearch && matchShipping && matchMonth;
             });
             
@@ -943,7 +758,7 @@
             chart.innerHTML = Object.entries(counts).map(([name, count]) => `
                 <div class="bar-row">
                     <div class="bar-label">${name}</div>
-                    <div class="bar" style="width: ${max > 0 ? (count/max)*80 : 0}%">${count}</div>
+                    <div class="bar" style="width: ${(count/max)*80}%">${count}</div>
                 </div>
             `).join('');
         }
@@ -951,7 +766,6 @@
         function renderRegionChart() {
             const regionCounts = {};
             salesData.forEach(d => {
-                if (!d.region) return;
                 const region = d.region.replace(/[0-9]/g, '').substring(0, 6);
                 regionCounts[region] = (regionCounts[region] || 0) + 1;
             });
@@ -959,12 +773,6 @@
             const top10 = Object.entries(regionCounts)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 10);
-            
-            if (top10.length === 0) {
-                document.getElementById('region-chart').innerHTML = '<p>暫無資料</p>';
-                return;
-            }
-            
             const max = top10[0][1];
             
             const chart = document.getElementById('region-chart');
@@ -979,7 +787,6 @@
         function renderCustomerList() {
             const customerCounts = {};
             salesData.forEach(d => {
-                if (!d.buyer) return;
                 customerCounts[d.buyer] = (customerCounts[d.buyer] || 0) + 1;
             });
             
@@ -1022,20 +829,18 @@
             // Clear form
             document.getElementById('new-buyer').value = '';
             document.getElementById('new-region').value = '';
-            document.getElementById('new-full-address').value = '';
             document.getElementById('new-shipping-cost').value = '60';
         }
         
-        async function addRecord() {
+        function addRecord() {
             const dateInput = document.getElementById('new-date').value;
             const buyer = document.getElementById('new-buyer').value.trim();
             const shippingType = document.getElementById('new-shipping-type').value;
             const shippingCost = document.getElementById('new-shipping-cost').value;
             const region = document.getElementById('new-region').value.trim();
-            const fullAddress = document.getElementById('new-full-address').value.trim();
             
             if (!dateInput || !buyer || !region) {
-                alert('請填寫日期、買家姓名和地區!');
+                alert('請填寫所有欄位!');
                 return;
             }
             
@@ -1043,7 +848,10 @@
             const date = formatDateForDisplay(dateInput);
             
             // Generate new ID
-            const maxId = salesData.length > 0 ? Math.max(...salesData.map(d => parseInt(d.id) || 0)) : 0;
+            const maxId = Math.max(...salesData.map(d => {
+                const match = d.id.match(/^(\d+)/);
+                return match ? parseInt(match[1]) : 0;
+            }));
             const newId = (maxId + 1).toString();
             
             const newRecord = {
@@ -1051,53 +859,32 @@
                 date: date,
                 buyer: buyer,
                 shipping: `${shippingType} (${shippingCost})`,
-                region: region,
-                full_address: fullAddress
+                region: region
             };
             
-            // Disable button
-            document.getElementById('add-btn').disabled = true;
-            showLoading('新增中...');
+            salesData.unshift(newRecord); // Add to beginning
+            saveData();
             
-            // Add to Google Sheets
-            const success = await addRecordToSheet(newRecord);
-            
-            if (success) {
-                salesData.unshift(newRecord);
-                closeModal();
-                filterData();
-                updateStats();
-                renderShippingChart();
-                renderRegionChart();
-                renderCustomerList();
-                showToast('✓ 已新增紀錄 #' + newId);
-            } else {
-                showToast('⚠️ 新增失敗，請稍後再試');
-            }
-            
-            document.getElementById('add-btn').disabled = false;
-            hideLoading();
+            closeModal();
+            filterData();
+            updateStats();
+            renderShippingChart();
+            renderRegionChart();
+            renderCustomerList();
+            showToast('✓ 已新增紀錄 #' + newId);
         }
         
-        async function deleteRecord(id) {
-            if (!confirm('確定要刪除這筆紀錄嗎?')) return;
-            
-            showLoading('刪除中...');
-            const success = await deleteRecordFromSheet(id);
-            
-            if (success) {
+        function deleteRecord(id) {
+            if (confirm('確定要刪除這筆紀錄嗎?')) {
                 salesData = salesData.filter(d => d.id !== id);
+                saveData();
                 filterData();
                 updateStats();
                 renderShippingChart();
                 renderRegionChart();
                 renderCustomerList();
-                showToast('✓ 已刪除紀錄');
-            } else {
-                showToast('⚠️ 刪除失敗，請稍後再試');
+                showToast('已刪除紀錄');
             }
-            
-            hideLoading();
         }
         
         function showToast(message) {
@@ -1112,7 +899,7 @@
             if (e.target === this) closeModal();
         });
         
-        // ===== 快速新增功能 =====
+        // ===== 快速新增功能 (簡化版) =====
         function openQuickModal() {
             document.getElementById('quick-modal').classList.add('active');
             document.getElementById('capturedImage').style.display = 'none';
@@ -1129,7 +916,6 @@
             // Clear form
             document.getElementById('quick-buyer').value = '';
             document.getElementById('quick-region').value = '';
-            document.getElementById('quick-full-address').value = '';
             document.getElementById('quick-shipping-cost').value = '60';
         }
         
@@ -1155,13 +941,12 @@
             reader.readAsDataURL(file);
         });
         
-        async function saveQuickRecord() {
+        function saveQuickRecord() {
             const dateInput = document.getElementById('quick-date').value;
             const buyer = document.getElementById('quick-buyer').value.trim();
             const shippingType = document.getElementById('quick-shipping-type').value;
             const shippingCost = document.getElementById('quick-shipping-cost').value;
             const region = document.getElementById('quick-region').value.trim();
-            const fullAddress = document.getElementById('quick-full-address').value.trim();
             
             if (!buyer) {
                 showToast('⚠️ 請填寫買家姓名');
@@ -1177,39 +962,27 @@
             
             // Create new record
             const maxId = salesData.length > 0 ? Math.max(...salesData.map(d => parseInt(d.id) || 0)) : 0;
-            const newId = (maxId + 1).toString();
+            const newId = maxId + 1;
+            
+            const shippingStr = shippingType + ' (' + shippingCost + ')';
             
             const newRecord = {
-                id: newId,
+                id: String(newId),
                 date: date,
                 buyer: buyer,
-                shipping: `${shippingType} (${shippingCost})`,
-                region: region || '未知',
-                full_address: fullAddress
+                shipping: shippingStr,
+                region: region || '未知'
             };
             
-            // Disable button
-            document.getElementById('quick-save-btn').disabled = true;
-            showLoading('新增中...');
-            
-            // Add to Google Sheets
-            const success = await addRecordToSheet(newRecord);
-            
-            if (success) {
-                salesData.unshift(newRecord);
-                closeQuickModal();
-                filterData();
-                updateStats();
-                renderShippingChart();
-                renderRegionChart();
-                renderCustomerList();
-                showToast('✓ 已新增紀錄 #' + newId);
-            } else {
-                showToast('⚠️ 新增失敗，請稍後再試');
-            }
-            
-            document.getElementById('quick-save-btn').disabled = false;
-            hideLoading();
+            salesData.unshift(newRecord);
+            saveData();
+            closeQuickModal();
+            filterData();
+            updateStats();
+            renderShippingChart();
+            renderRegionChart();
+            renderCustomerList();
+            showToast('✓ 已新增紀錄 #' + newId);
         }
         
         // Close quick modal when clicking outside
@@ -1217,8 +990,7 @@
             if (e.target === this) closeQuickModal();
         });
         
-        // Initial load
-        loadData();
+        init();
     </script>
 </body>
 </html>
