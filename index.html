@@ -8,8 +8,6 @@
     <meta name="apple-mobile-web-app-title" content="銷售紀錄">
     <title>銷售紀錄 Sales Records</title>
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%234A90D9' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>📦</text></svg>">
-    <!-- Tesseract.js for OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -1115,11 +1113,18 @@
         });
         
         // ===== 快速新增功能 =====
+        let tesseractLoaded = false;
+        
         function openQuickModal() {
             document.getElementById('quick-modal').classList.add('active');
             document.getElementById('capturedImage').style.display = 'none';
             document.getElementById('photoInputWrapper').style.display = 'block';
             document.getElementById('photoInput').value = '';
+            
+            // 延遲載入 Tesseract.js
+            if (!tesseractLoaded) {
+                loadTesseract();
+            }
             
             // Set today's date
             const today = new Date();
@@ -1139,10 +1144,33 @@
             document.getElementById('quick-modal').classList.remove('active');
         }
         
+        // 動態載入 Tesseract.js
+        function loadTesseract() {
+            showLoading('載入 OCR 引擎...');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            script.onload = function() {
+                tesseractLoaded = true;
+                hideLoading();
+                showToast('✓ OCR 已就緒');
+            };
+            script.onerror = function() {
+                hideLoading();
+                showToast('⚠️ OCR 載入失敗');
+            };
+            document.head.appendChild(script);
+        }
+        
         // Handle photo selection/capture with OCR
         document.getElementById('photoInput').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
+            
+            // 檢查 Tesseract 是否已載入
+            if (typeof Tesseract === 'undefined') {
+                showToast('⚠️ OCR 引擎仍在載入中，請稍候...');
+                return;
+            }
             
             const preview = document.getElementById('capturedImage');
             const inputWrapper = document.getElementById('photoInputWrapper');
