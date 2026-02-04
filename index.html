@@ -8,8 +8,8 @@
     <meta name="apple-mobile-web-app-title" content="銷售紀錄">
     <title>銷售紀錄 Sales Records</title>
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%234A90D9' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>📦</text></svg>">
-    <!-- Tesseract.js for OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- Load data from external file -->
+    <script src="data.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -162,8 +162,8 @@
             background: #ff3344;
         }
         
-        /* Camera/Scan Styles */
-        .scan-btn {
+        /* Quick Add Styles */
+        .quick-btn {
             background: linear-gradient(135deg, #FF6B6B, #EE5A5A);
             color: white;
             border: none;
@@ -177,7 +177,7 @@
             gap: 8px;
         }
         
-        .scan-btn:hover {
+        .quick-btn:hover {
             transform: scale(1.02);
         }
         
@@ -187,101 +187,13 @@
             overflow-y: auto;
         }
         
-        .camera-preview {
-            width: 100%;
-            max-height: 300px;
-            background: #000;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            object-fit: contain;
-        }
-        
         .captured-image {
             width: 100%;
-            max-height: 250px;
+            max-height: 200px;
             object-fit: contain;
             border-radius: 10px;
             border: 2px solid #e0e0e0;
             margin-bottom: 15px;
-        }
-        
-        .camera-buttons {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .btn-capture {
-            background: linear-gradient(135deg, #FF6B6B, #EE5A5A);
-            color: white;
-            flex: 1;
-        }
-        
-        .btn-retake {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .ocr-progress {
-            display: none;
-            text-align: center;
-            padding: 20px;
-        }
-        
-        .ocr-progress.show {
-            display: block;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 10px;
-            background: #e0e0e0;
-            border-radius: 5px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #4A90D9, #357ABD);
-            width: 0%;
-            transition: width 0.3s;
-        }
-        
-        .ocr-status {
-            color: #666;
-            font-size: 14px;
-        }
-        
-        .extracted-data {
-            display: none;
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 15px;
-        }
-        
-        .extracted-data.show {
-            display: block;
-        }
-        
-        .extracted-data h4 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-        
-        .raw-text {
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 100px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
         }
         
         .file-input-wrapper {
@@ -299,7 +211,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 40px 20px;
+            padding: 30px 20px;
             background: #f8f9fa;
             border: 3px dashed #4A90D9;
             border-radius: 15px;
@@ -313,19 +225,19 @@
         }
         
         .file-input-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
+            font-size: 36px;
+            margin-bottom: 8px;
         }
         
         .file-input-text {
             color: #4A90D9;
             font-weight: 600;
-            font-size: 16px;
+            font-size: 14px;
         }
         
         .file-input-subtext {
             color: #999;
-            font-size: 13px;
+            font-size: 12px;
             margin-top: 5px;
         }
 
@@ -571,8 +483,8 @@
         <div class="modal">
             <h2>➕ 新增紀錄</h2>
             <div class="form-group">
-                <label>日期 (例: 1/30)</label>
-                <input type="text" id="new-date" placeholder="1/30">
+                <label>日期</label>
+                <input type="date" id="new-date">
             </div>
             <div class="form-group">
                 <label>買家姓名</label>
@@ -604,71 +516,53 @@
     <!-- Toast notification -->
     <div class="toast" id="toast">已新增紀錄!</div>
     
-    <!-- Camera/Scan Modal -->
-    <div class="modal-overlay" id="scan-modal">
+    <!-- Quick Add Modal (簡化版，無 OCR) -->
+    <div class="modal-overlay" id="quick-modal">
         <div class="modal camera-modal">
-            <h2>📷 掃描訂單</h2>
+            <h2>📝 快速新增</h2>
             
-            <!-- File Input for Camera -->
+            <!-- Optional Photo Reference -->
             <div class="file-input-wrapper" id="photoInputWrapper">
                 <input type="file" id="photoInput" accept="image/*" capture="environment">
                 <label for="photoInput" class="file-input-label">
-                    <div class="file-input-icon">📸</div>
-                    <div class="file-input-text">點擊拍照或選擇圖片</div>
-                    <div class="file-input-subtext">Tap to take photo or select image</div>
+                    <div class="file-input-icon">📷</div>
+                    <div class="file-input-text">選填：拍照作為參考</div>
+                    <div class="file-input-subtext">Optional: Take photo for reference</div>
                 </label>
             </div>
             
             <!-- Captured Image Preview -->
             <img id="capturedImage" class="captured-image" style="display: none;">
             
-            <!-- OCR Progress -->
-            <div class="ocr-progress" id="ocrProgress">
-                <div class="ocr-status" id="ocrStatus">正在辨識文字...</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
+            <!-- Input Form -->
+            <div class="form-group">
+                <label>日期</label>
+                <input type="date" id="quick-date">
             </div>
-            
-            <!-- Extracted Data Form -->
-            <div class="extracted-data" id="extractedData">
-                <h4>📝 辨識結果 (請確認/修改)</h4>
-                <div class="raw-text" id="rawText"></div>
-                
-                <div class="form-group">
-                    <label>日期</label>
-                    <input type="text" id="scan-date" placeholder="例: 2/3">
-                </div>
-                <div class="form-group">
-                    <label>買家姓名</label>
-                    <input type="text" id="scan-buyer" placeholder="買家姓名">
-                </div>
-                <div class="form-group">
-                    <label>貨運方式</label>
-                    <select id="scan-shipping-type">
-                        <option value="7-11">7-11</option>
-                        <option value="全家">全家</option>
-                        <option value="宅配">宅配</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>運費</label>
-                    <input type="number" id="scan-shipping-cost" value="60">
-                </div>
-                <div class="form-group">
-                    <label>地址/門市</label>
-                    <input type="text" id="scan-region" placeholder="地區或門市名稱">
-                </div>
-                <div class="form-group">
-                    <label>電話 (選填)</label>
-                    <input type="text" id="scan-phone" placeholder="電話號碼">
-                </div>
+            <div class="form-group">
+                <label>買家姓名</label>
+                <input type="text" id="quick-buyer" placeholder="買家姓名">
+            </div>
+            <div class="form-group">
+                <label>貨運方式</label>
+                <select id="quick-shipping-type">
+                    <option value="7-11">7-11</option>
+                    <option value="全家">全家</option>
+                    <option value="宅配">宅配</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>運費</label>
+                <input type="number" id="quick-shipping-cost" value="60">
+            </div>
+            <div class="form-group">
+                <label>地址/門市</label>
+                <input type="text" id="quick-region" placeholder="地區或門市名稱">
             </div>
             
             <div class="modal-buttons">
-                <button class="btn btn-secondary" onclick="closeScanModal()">取消</button>
-                <button class="btn btn-secondary btn-retake" id="retakeBtn" style="display:none;" onclick="retakePhoto()">🔄 重拍</button>
-                <button class="btn btn-primary" id="saveScanBtn" style="display:none;" onclick="saveScanRecord()">✓ 儲存紀錄</button>
+                <button class="btn btn-secondary" onclick="closeQuickModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveQuickRecord()">✓ 儲存紀錄</button>
             </div>
         </div>
     </div>
@@ -687,7 +581,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; gap: 10px;">
                         <button class="add-btn" onclick="openModal()">➕ 新增紀錄</button>
-                        <button class="scan-btn" onclick="openScanModal()">📷 掃描訂單</button>
+                        <button class="quick-btn" onclick="openQuickModal()">📝 快速新增</button>
                     </div>
                     <span style="color: #666; font-size: 14px;">資料自動儲存於本機</span>
                 </div>
@@ -767,527 +661,7 @@
     </div>
     
     <script>
-        const initialData = [
-            {id: "1", date: "2/26", buyer: "梁益洪", shipping: "7-11 (80-)", region: "香圃"},
-            {id: "2", date: "2/26", buyer: "王榮輝", shipping: "7-11 (80-)", region: "嘉大"},
-            {id: "3", date: "2/26", buyer: "徐歆", shipping: "全家 (70-)", region: "新粟光"},
-            {id: "4", date: "3/2", buyer: "邱弘仁", shipping: "7-11 (80-)", region: "臨通"},
-            {id: "5", date: "3/5", buyer: "王光毓", shipping: "宅配 (80-)", region: "新竹市"},
-            {id: "6", date: "3/14", buyer: "黃士豪", shipping: "全家 (70+10)", region: "岡山平和"},
-            {id: "7", date: "3/21", buyer: "王芳成", shipping: "宅配 (37-)", region: "台北內湖"},
-            {id: "8", date: "4/3", buyer: "謝豐帆", shipping: "7-11 (70-)", region: "大瑩"},
-            {id: "9", date: "4/3", buyer: "翁安婕", shipping: "全家 (60-)", region: "高雄裕民"},
-            {id: "10", date: "4/3", buyer: "吳金泰", shipping: "全家 (70-)", region: "VIP竹山金竹"},
-            {id: "11", date: "4/5", buyer: "李孟修", shipping: "7-11 (100-)", region: "高雄神農"},
-            {id: "12", date: "4/7", buyer: "林英君", shipping: "宅配 (37-)", region: "台南學甲"},
-            {id: "13", date: "4/7", buyer: "陳志隆", shipping: "宅配 (37-)", region: "嘉義西區"},
-            {id: "14", date: "4/7", buyer: "李阿富", shipping: "宅配 (37-)", region: "新北三重"},
-            {id: "15", date: "4/7", buyer: "謝方智", shipping: "宅配 (37)", region: "台北大安"},
-            {id: "16", date: "4/8", buyer: "陳林弘", shipping: "宅配 (37-)", region: "新竹縣"},
-            {id: "17", date: "4/15", buyer: "吳金泰", shipping: "全家 (70-)", region: "竹山金竹"},
-            {id: "18", date: "4/15", buyer: "李孟修", shipping: "7-11 (70-)", region: "高雄神農"},
-            {id: "19", date: "4/16", buyer: "鍾賢能", shipping: "宅配 (37-)", region: "高雄美濃"},
-            {id: "20", date: "4/16", buyer: "黃皓峰", shipping: "7-11 (60-)", region: "苗栗正合"},
-            {id: "21", date: "4/16", buyer: "林青洋", shipping: "7-11 (60-)", region: "台中精田"},
-            {id: "22", date: "4/16", buyer: "翁楀倫", shipping: "7-11 (60-)", region: "嘉義光彩"},
-            {id: "23", date: "4/17", buyer: "李孟修", shipping: "7-11 (80-)", region: "高雄神農"},
-            {id: "24", date: "4/18", buyer: "林昇端", shipping: "7-11 (60-)", region: "淡水揚都"},
-            {id: "25", date: "4/18", buyer: "楊勝閎", shipping: "7-11 (60-)", region: "蘆洲蘆華"},
-            {id: "26", date: "4/18", buyer: "邱弘仁", shipping: "7-11 (60-)", region: "台北臨通"},
-            {id: "27", date: "5/1", buyer: "林青洋", shipping: "7-11 (60-)", region: "台中精田"},
-            {id: "28", date: "5/1", buyer: "張地位", shipping: "7-11 (60-)", region: "台北錦北"},
-            {id: "29", date: "5/1", buyer: "翁安婕", shipping: "全家 (60-)", region: "高雄裕民"},
-            {id: "30", date: "5/1", buyer: "郭禮文", shipping: "全家 (60-)", region: "台北日新"},
-            {id: "31", date: "5/5", buyer: "魏廷翰", shipping: "7-11 (60-)", region: "新北長洲"},
-            {id: "32-34", date: "5/5", buyer: "李孟修", shipping: "7-11 (180)", region: "高雄神農"},
-            {id: "35", date: "5/9", buyer: "呂家昌", shipping: "宅配 (37-)", region: "台北大安"},
-            {id: "36", date: "5/22", buyer: "林英君", shipping: "宅配 (37-)", region: "台南學甲"},
-            {id: "37", date: "5/22", buyer: "鄭凱鴻?", shipping: "宅配 (37-)", region: "高雄三民"},
-            {id: "38", date: "5/22", buyer: "游晙右", shipping: "7-11 (60-)", region: "板橋溪州"},
-            {id: "39", date: "5/22", buyer: "魏嘉宏", shipping: "宅配 (37-)", region: "高雄鳳山"},
-            {id: "40", date: "6/1", buyer: "張地位", shipping: "7-11 (60-)", region: "台北錦北"},
-            {id: "41", date: "6/1", buyer: "章林泯泓", shipping: "7-11 (60-)", region: "高雄永益"},
-            {id: "42", date: "6/1", buyer: "林維鵬", shipping: "7-11 (60-)", region: "高雄"},
-            {id: "43", date: "6/2", buyer: "謝方智", shipping: "宅配 (37-)", region: "台北大安"},
-            {id: "44", date: "6/2", buyer: "林英君", shipping: "宅配 (37-)", region: "台南學甲"},
-            {id: "45", date: "6/2", buyer: "陳偉明", shipping: "宅配 (37-)", region: "高雄茄萣"},
-            {id: "46", date: "6/2", buyer: "吳德聖", shipping: "宅配 (37-)", region: "高雄鼓山"},
-            {id: "47", date: "6/2", buyer: "陳偉傑", shipping: "宅配 (37)", region: "新北中和"},
-            {id: "48", date: "6/2", buyer: "李駿葦", shipping: "宅配 (37)", region: "桃園大溪"},
-            {id: "49", date: "6/2", buyer: "陳冠旭", shipping: "宅配 (37)", region: "桃園楊梅"},
-            {id: "50", date: "6/2", buyer: "陳麥昱", shipping: "宅配 (37)", region: "新竹東區"},
-            {id: "51", date: "6/2", buyer: "劉少李", shipping: "宅配 (37)", region: "台中潭子"},
-            {id: "52", date: "6/6", buyer: "黃文成", shipping: "宅配 (37)", region: "新北樹林"},
-            {id: "53", date: "6/6", buyer: "林皓偉", shipping: "宅配 (37)", region: "台北中正區"},
-            {id: "54", date: "6/6", buyer: "陳冠旭", shipping: "宅配 (37)", region: "桃園楊梅"},
-            {id: "55", date: "6/6", buyer: "林志航", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "56", date: "6/6", buyer: "戴伯晏", shipping: "宅配 (37)", region: "新竹縣竹北"},
-            {id: "57", date: "6/6", buyer: "黃鈞暐", shipping: "宅配 (37)", region: "台中太平"},
-            {id: "58", date: "6/6", buyer: "駱啟仁", shipping: "宅配 (37)", region: "台中市東區"},
-            {id: "59", date: "6/6", buyer: "魯光明", shipping: "宅配 (37)", region: "高雄鳳山"},
-            {id: "60", date: "6/6", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "61", date: "6/6", buyer: "林建宏", shipping: "宅配 (37)", region: "高雄前鎮"},
-            {id: "62", date: "6/6", buyer: "蔡智丞", shipping: "全家 (60)", region: "基隆新祥豐"},
-            {id: "63", date: "6/6", buyer: "陳政雄", shipping: "全家 (60)", region: "樹林學園"},
-            {id: "64", date: "6/6", buyer: "溫懷恩", shipping: "全家 (60)", region: "高雄聖王"},
-            {id: "65", date: "6/6", buyer: "梁益紘", shipping: "7-11 (60)", region: "新竹香圃"},
-            {id: "66", date: "6/6", buyer: "王英樺", shipping: "7-11 (60)", region: "雲林儒虎"},
-            {id: "67", date: "6/6", buyer: "林佳樺", shipping: "7-11 (60)", region: "台中花樂"},
-            {id: "68", date: "6/6", buyer: "趙品盛", shipping: "7-11 (60)", region: "台中詠德"},
-            {id: "69", date: "6/6", buyer: "丁健哲", shipping: "7-11 (60)", region: "高雄園興"},
-            {id: "70", date: "6/6", buyer: "鄭雲蘭", shipping: "7-11 (60)", region: "三重正孝"},
-            {id: "71", date: "6/6", buyer: "王乙辰", shipping: "7-11 (60)", region: "中和福泉"},
-            {id: "72", date: "6/6", buyer: "林俊宏", shipping: "7-11 (60)", region: "高雄建榮"},
-            {id: "73", date: "6/6", buyer: "林維鵬", shipping: "7-11 (60)", region: "高雄門市"},
-            {id: "74", date: "6/20", buyer: "溫懷恩", shipping: "全家 (60)", region: "高雄聖王"},
-            {id: "75", date: "6/20", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "76", date: "6/20", buyer: "石茗耀", shipping: "宅配 (37)", region: "桃園市"},
-            {id: "77", date: "6/29", buyer: "劉懷欽", shipping: "7-11 (60)", region: "台中新甲后"},
-            {id: "78", date: "6/29", buyer: "陳宥廷", shipping: "7-11 (60)", region: "彰化群茂"},
-            {id: "79", date: "6/29", buyer: "陳俊宇", shipping: "7-11 (60)", region: "雲林星光"},
-            {id: "80", date: "6/29", buyer: "林維鵬", shipping: "7-11 (60)", region: "高雄門市"},
-            {id: "81", date: "6/30", buyer: "鄭燿任", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "82", date: "6/30", buyer: "曾華府", shipping: "宅配 (37)", region: "桃園蘆竹"},
-            {id: "83", date: "6/30", buyer: "王睿哲", shipping: "宅配 (37)", region: "花蓮吉安"},
-            {id: "84", date: "6/30", buyer: "鄭閎詳", shipping: "宅配 (37)", region: "高雄前鎮"},
-            {id: "85", date: "6/30", buyer: "成康淞", shipping: "宅配 (37)", region: "高雄左營"},
-            {id: "86", date: "6/30", buyer: "林俊宏", shipping: "宅配 (37)", region: "高雄鼓山"},
-            {id: "87", date: "7/2", buyer: "張純鳳", shipping: "7-11 (60)", region: "新莊傑元"},
-            {id: "88", date: "7/9", buyer: "林建宏", shipping: "宅配 (37)", region: "高雄前鎮"},
-            {id: "89", date: "7/9", buyer: "鄭閎詳", shipping: "宅配 (37)", region: "高雄前鎮"},
-            {id: "90", date: "7/9", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "91", date: "7/9", buyer: "鄭欣榮", shipping: "宅配 (37)", region: "屏東內埔"},
-            {id: "92", date: "7/9", buyer: "陳世國", shipping: "宅配 (37)", region: "屏東鹽埔"},
-            {id: "93", date: "7/9", buyer: "林英君", shipping: "宅配 (37)", region: "台南學甲"},
-            {id: "94", date: "7/9", buyer: "黃家源", shipping: "宅配 (37)", region: "台南永康"},
-            {id: "95", date: "7/9", buyer: "陳和山", shipping: "宅配 (37)", region: "金門金寧"},
-            {id: "96", date: "7/9", buyer: "蔡漢英", shipping: "宅配 (37)", region: "台東縣"},
-            {id: "97", date: "7/9", buyer: "鍾妮君", shipping: "宅配 (37)", region: "桃園市"},
-            {id: "98", date: "7/9", buyer: "吳宗翰", shipping: "宅配 (37)", region: "台北松山"},
-            {id: "99", date: "7/8", buyer: "鄭雲蘭", shipping: "7-11 (62)", region: "三重正孝"},
-            {id: "100", date: "7/8", buyer: "黃文盛", shipping: "7-11 (62)", region: "內湖港華"},
-            {id: "101", date: "7/8", buyer: "劉懷欽", shipping: "7-11 (62)", region: "台中新甲后"},
-            {id: "102", date: "7/8", buyer: "王英樺", shipping: "7-11 (60)", region: "虎尾儒虎"},
-            {id: "103", date: "7/8", buyer: "侯宗佑", shipping: "7-11 (62)", region: "雲林褒旺"},
-            {id: "104", date: "7/8", buyer: "陳宜偉", shipping: "7-11 (62)", region: "魚池鑫魚池"},
-            {id: "105", date: "7/13", buyer: "吳金泰", shipping: "全家 (62)", region: "南投延和"},
-            {id: "106", date: "7/14", buyer: "黃文成", shipping: "宅配 (37)", region: "新北樹林"},
-            {id: "107", date: "7/14", buyer: "陳冠旭", shipping: "宅配 (37)", region: "桃園楊梅"},
-            {id: "108", date: "7/14", buyer: "黃柏融", shipping: "宅配 (37)", region: "台中南屯"},
-            {id: "109", date: "7/14", buyer: "陳健中", shipping: "宅配 (37)", region: "彰化大村"},
-            {id: "110", date: "7/14", buyer: "羅郁泓", shipping: "宅配 (37)", region: "彰化員林"},
-            {id: "111", date: "7/17", buyer: "劉宸銘", shipping: "宅配 (37)", region: "台北文山區"},
-            {id: "112", date: "7/17", buyer: "周洛駿", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "113", date: "7/7", buyer: "王文信", shipping: "宅配 (37)", region: "台南東山區"},
-            {id: "114", date: "7/8", buyer: "楊宗銘", shipping: "7-11 (60)", region: "永和新永愛"},
-            {id: "115", date: "7/8", buyer: "黃湘怡", shipping: "7-11 (60)", region: "嘉義保新"},
-            {id: "116", date: "7/8", buyer: "陳姿伶", shipping: "7-11 (60)", region: "高雄皓東"},
-            {id: "117", date: "7/20", buyer: "曾子軒", shipping: "7-11 (60)", region: "桃園頂社"},
-            {id: "118", date: "7/20", buyer: "侯宗佑", shipping: "7-11 (60)", region: "雲林褒旺"},
-            {id: "119", date: "7/30", buyer: "許晉榮", shipping: "7-11 (60)", region: "高雄新聖明"},
-            {id: "120", date: "7/30", buyer: "鍾坤霖", shipping: "7-11 (60)", region: "台南新家專"},
-            {id: "121", date: "7/1", buyer: "傅柏鈞", shipping: "宅配 (37)", region: "台北市內湖"},
-            {id: "122", date: "7/25", buyer: "謝方智", shipping: "宅配 (37)", region: "台北市大安"},
-            {id: "123", date: "7/25", buyer: "蘇宏聿", shipping: "宅配 (37)", region: "台北內湖"},
-            {id: "124", date: "7/25", buyer: "林皓偉", shipping: "宅配 (37)", region: "台北中正區"},
-            {id: "125", date: "7/25", buyer: "吳彥鋒", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "126", date: "7/25", buyer: "洪偉翔", shipping: "宅配 (37)", region: "台中清水"},
-            {id: "127", date: "7/25", buyer: "曾柏鈞", shipping: "宅配 (37)", region: "台中南區"},
-            {id: "128", date: "7/25", buyer: "黃湘怡", shipping: "宅配 (37)", region: "嘉義太保"},
-            {id: "129", date: "7/25", buyer: "鄭欣榮", shipping: "宅配 (37)", region: "屏東內埔"},
-            {id: "130", date: "7/25", buyer: "王文信", shipping: "宅配 (37)", region: "台南東山"},
-            {id: "131", date: "7/25", buyer: "林英君", shipping: "宅配 (37)", region: "台南學甲"},
-            {id: "132", date: "7/25", buyer: "楊忠霖", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "133", date: "7/25", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "134", date: "7/25", buyer: "許苡歆", shipping: "宅配 (37)", region: "高雄小港"},
-            {id: "135", date: "7/25", buyer: "林建宏", shipping: "宅配 (37)", region: "高雄鳳山"},
-            {id: "136", date: "7/25", buyer: "林俊宏", shipping: "宅配 (80)", region: "高雄鼓山"},
-            {id: "137", date: "7/25", buyer: "翁安婕", shipping: "全家 (62)", region: "高雄裕民"},
-            {id: "138", date: "7/25", buyer: "陳俊達", shipping: "7-11 (62)", region: "新竹金山街"},
-            {id: "139", date: "7/25", buyer: "趙品盛", shipping: "7-11 (60)", region: "台中詠德"},
-            {id: "140", date: "7/25", buyer: "曾經偉", shipping: "7-11 (60)", region: "台中詠權"},
-            {id: "141", date: "7/25", buyer: "丁健哲", shipping: "7-11 (60)", region: "高雄園興"},
-            {id: "142", date: "7/25", buyer: "鐘坤霖", shipping: "7-11 (60)", region: "台南新家專"},
-            {id: "143", date: "7/31", buyer: "楊昌達", shipping: "宅配 (37)", region: "嘉義新港"},
-            {id: "144", date: "7/31", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "145", date: "8/2", buyer: "陳麥昱", shipping: "7-11 (60)", region: "新竹佳香"},
-            {id: "146", date: "8/2", buyer: "劉群靖", shipping: "7-11 (60)", region: "雲林育北"},
-            {id: "147", date: "8/2", buyer: "林志達", shipping: "7-11 (60)", region: "台南新本安"},
-            {id: "148", date: "8/2", buyer: "陳世國", shipping: "7-11 (60)", region: "屏東萇盛"},
-            {id: "149", date: "8/2", buyer: "溫懷恩", shipping: "全家 (80)", region: "高雄聖王"},
-            {id: "150", date: "8/4", buyer: "蘇宏聿", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "151", date: "8/4", buyer: "周洛駿", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "152", date: "8/4", buyer: "張旭東", shipping: "宅配 (37)", region: "新北土城"},
-            {id: "153", date: "8/4", buyer: "陳廷宏", shipping: "宅配 (37)", region: "台北文山區"},
-            {id: "154", date: "8/4", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "155", date: "8/4", buyer: "陳健中", shipping: "宅配 (37)", region: "彰化大村"},
-            {id: "156", date: "8/4", buyer: "謝豐帆", shipping: "宅配 (37)", region: "台南仁德"},
-            {id: "157", date: "8/4", buyer: "林英君", shipping: "宅配 (37)", region: "台南學甲"},
-            {id: "158", date: "8/4", buyer: "陳偉明", shipping: "宅配 (38)", region: "高雄茄萣"},
-            {id: "159", date: "8/4", buyer: "陶柏仁", shipping: "宅配 (80)", region: "高雄楠梓"},
-            {id: "160", date: "8/6", buyer: "呂冠葶", shipping: "宅配 (37)", region: "新北八里"},
-            {id: "161", date: "8/6", buyer: "王姿晴", shipping: "宅配 (37)", region: "高雄大寮"},
-            {id: "162", date: "8/8", buyer: "周洛駿", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "163", date: "8/8", buyer: "許珀崇", shipping: "宅配 (37)", region: "新北淡水"},
-            {id: "164", date: "8/8", buyer: "吳彥鋒", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "165", date: "8/8", buyer: "洪偉翔", shipping: "宅配 (37)", region: "台中清水"},
-            {id: "166", date: "8/8", buyer: "羅郁泓", shipping: "宅配 (37)", region: "彰化員林"},
-            {id: "167", date: "8/8", buyer: "魯光明", shipping: "宅配 (37)", region: "高雄鳳山"},
-            {id: "168", date: "8/8", buyer: "鄭欣榮", shipping: "宅配 (37)", region: "屏東內埔"},
-            {id: "169", date: "8/8", buyer: "蔡漢英", shipping: "宅配 (37)", region: "台東縣"},
-            {id: "170", date: "8/8", buyer: "夏國隆", shipping: "全家 (53)", region: "苗栗八寶"},
-            {id: "171", date: "8/8", buyer: "邱明騰", shipping: "全家 (53)", region: "高雄福山"},
-            {id: "172", date: "8/8", buyer: "曾伯豪", shipping: "7-11 (60)", region: "淡水立飛"},
-            {id: "173", date: "8/8", buyer: "邱泰宗", shipping: "7-11 (60)", region: "苗栗大銅"},
-            {id: "174", date: "8/8", buyer: "劉群靖", shipping: "7-11 (60)", region: "雲林育北"},
-            {id: "175", date: "8/8", buyer: "許晉榮", shipping: "7-11 (60)", region: "高雄新聖明"},
-            {id: "176", date: "8/11", buyer: "劉群靖", shipping: "7-11 (60)", region: "雲林育北"},
-            {id: "177", date: "8/11", buyer: "黃子驊", shipping: "7-11 (60)", region: "苗栗展宏"},
-            {id: "178", date: "8/12", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "179", date: "8/14", buyer: "林松樺", shipping: "宅配 (37)", region: "台北北投"},
-            {id: "180", date: "8/14", buyer: "盧正達", shipping: "宅配 (37)", region: "台北大安"},
-            {id: "181", date: "8/14", buyer: "吳宗翰", shipping: "宅配 (37)", region: "台北松山"},
-            {id: "182", date: "8/14", buyer: "高唯楨", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "183", date: "8/14", buyer: "周洛駿", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "184", date: "8/14", buyer: "陳建宏", shipping: "宅配 (37)", region: "桃園楊梅"},
-            {id: "185", date: "8/14", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "186", date: "8/14", buyer: "林英君", shipping: "宅配 (37)", region: "台南學甲"},
-            {id: "187", date: "8/14", buyer: "王姿晴", shipping: "宅配 (37)", region: "高雄大寮"},
-            {id: "188", date: "8/14", buyer: "陶柏仁", shipping: "宅配 (80)", region: "高雄楠梓"},
-            {id: "189", date: "8/14", buyer: "林荺芯", shipping: "全家 (53)", region: "新北旭陞"},
-            {id: "190", date: "8/14", buyer: "翁安婕", shipping: "全家 (53)", region: "高雄裕民"},
-            {id: "191", date: "8/14", buyer: "徐定紘", shipping: "7-11 (60)", region: "宜蘭侯成"},
-            {id: "192", date: "8/14", buyer: "張純鳳", shipping: "7-11 (60)", region: "新北傑元"},
-            {id: "193", date: "8/14", buyer: "陳麥昱", shipping: "7-11 (60)", region: "新竹佳香"},
-            {id: "194", date: "8/14", buyer: "王英樺", shipping: "7-11 (60)", region: "雲林儒虎"},
-            {id: "195", date: "8/14", buyer: "程科貿", shipping: "7-11 (60)", region: "雲林七崁"},
-            {id: "196", date: "8/14", buyer: "李仲翔", shipping: "7-11 (60)", region: "嘉義過溝"},
-            {id: "197", date: "8/14", buyer: "游丞學", shipping: "7-11 (60)", region: "高雄享順"},
-            {id: "198", date: "8/15", buyer: "吳宗翰", shipping: "宅配 (70)", region: "台北松山"},
-            {id: "199", date: "8/15", buyer: "鍾妮君", shipping: "宅配 (37)", region: "桃園市"},
-            {id: "200", date: "8/16", buyer: "陳麥昱", shipping: "7-11 (60)", region: "新竹佳香"},
-            {id: "201", date: "8/15", buyer: "王英樺", shipping: "7-11 (60)", region: "雲林儒虎"},
-            {id: "202", date: "8/16", buyer: "劉群靖", shipping: "7-11 (60)", region: "雲林育北"},
-            {id: "203", date: "8/18", buyer: "林志達", shipping: "7-11 (60)", region: "台南新本安"},
-            {id: "204", date: "8/19", buyer: "周洛駿", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "205", date: "8/19", buyer: "吳成德", shipping: "宅配 (37)", region: "新竹香山"},
-            {id: "206", date: "8/20", buyer: "楊忠霖", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "207", date: "8/21", buyer: "劉宬銘", shipping: "宅配 (37)", region: "台北文山"},
-            {id: "208", date: "8/21", buyer: "盧正達", shipping: "宅配 (37)", region: "台北大安"},
-            {id: "209", date: "8/21", buyer: "洪仟儒", shipping: "7-11 (60)", region: "宜蘭心蓮"},
-            {id: "210", date: "8/21", buyer: "陳俊達", shipping: "7-11 (60)", region: "新竹金山街"},
-            {id: "211", date: "8/24", buyer: "柯翔幃", shipping: "7-11 (62)", region: "淡水淡欣"},
-            {id: "212", date: "8/25", buyer: "鄞妤軒", shipping: "宅配 (37)", region: "台中太平"},
-            {id: "213", date: "8/25", buyer: "陶柏仁", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "214", date: "8/27", buyer: "蔡旻翰", shipping: "宅配 (37)", region: "台北士林"},
-            {id: "215", date: "8/27", buyer: "蕭永沂", shipping: "宅配 (37)", region: "新北新店"},
-            {id: "216", date: "8/27", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "217", date: "8/27", buyer: "陳麥昱", shipping: "7-11 (60)", region: "新竹佳香"},
-            {id: "218", date: "8/27", buyer: "陳俊達", shipping: "7-11 (60)", region: "新竹金山街"},
-            {id: "219", date: "8/27", buyer: "林志達", shipping: "7-11 (60)", region: "台南新本安"},
-            {id: "220", date: "8/27", buyer: "許晉榮", shipping: "7-11 (60)", region: "高雄新聖明"},
-            {id: "221", date: "8/27", buyer: "鍾坤霖", shipping: "7-11 (60)", region: "台南新家專"},
-            {id: "222", date: "8/28", buyer: "劉宬銘", shipping: "宅配 (37)", region: "台北文山"},
-            {id: "223", date: "8/28", buyer: "蕭文德", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "224", date: "8/30", buyer: "王襄艷", shipping: "7-11 (60)", region: "新北富鄰"},
-            {id: "225", date: "9/1", buyer: "蘇宏聿", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "226", date: "9/1", buyer: "鍾昀學", shipping: "宅配 (37)", region: "桃園龜山"},
-            {id: "227", date: "9/1", buyer: "羅郁泓", shipping: "宅配 (37)", region: "彰化員林"},
-            {id: "228", date: "9/1", buyer: "吳政鴻", shipping: "宅配 (37)", region: "雲林斗南"},
-            {id: "229", date: "9/10", buyer: "鍾昀學", shipping: "宅配 (37)", region: "桃園龜山"},
-            {id: "230", date: "9/11", buyer: "翁承傑", shipping: "全家 (53)", region: "新北同興"},
-            {id: "231", date: "9/11", buyer: "徐定紘", shipping: "7-11 (62)", region: "宜蘭侯成"},
-            {id: "232", date: "9/11", buyer: "陳俊達", shipping: "7-11 (60)", region: "新竹金山街"},
-            {id: "233", date: "9/12", buyer: "潘瑞彬", shipping: "宅配 (37)", region: "新北淡水"},
-            {id: "234", date: "9/12", buyer: "鄞妤軒", shipping: "宅配 (37)", region: "台中太平"},
-            {id: "235", date: "9/12", buyer: "曾柏鈞", shipping: "宅配 (37)", region: "台中南區"},
-            {id: "236", date: "9/12", buyer: "羅駿展", shipping: "宅配 (37)", region: "高雄前鎮"},
-            {id: "237", date: "9/12", buyer: "陶柏仁", shipping: "宅配 (80)", region: "高雄楠梓"},
-            {id: "238", date: "9/13", buyer: "許暉政", shipping: "7-11 (60)", region: "桃園美利堅"},
-            {id: "239", date: "9/13", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "240", date: "9/13", buyer: "洪鋮錫", shipping: "7-11 (60)", region: "新北里商"},
-            {id: "241", date: "9/15", buyer: "王芳誠", shipping: "宅配 (50)", region: "台北內湖"},
-            {id: "242", date: "9/15", buyer: "蔡瑀晴", shipping: "宅配 (37)", region: "桃園龜山"},
-            {id: "243", date: "9/15", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "244", date: "9/15", buyer: "林志達", shipping: "7-11 (60)", region: "台南新本安"},
-            {id: "245", date: "9/15", buyer: "許晉榮", shipping: "7-11 (60)", region: "高雄新聖明"},
-            {id: "246", date: "9/16", buyer: "蕭文德", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "247", date: "9/16", buyer: "許苡歆", shipping: "宅配 (37)", region: "高雄小港"},
-            {id: "248", date: "9/16", buyer: "王姿晴", shipping: "宅配 (37)", region: "高雄大寮"},
-            {id: "249", date: "9/18", buyer: "林皓暐", shipping: "宅配 (37)", region: "台北中正"},
-            {id: "250", date: "9/18", buyer: "邱郁婷", shipping: "宅配 (37)", region: "新北土城"},
-            {id: "251", date: "9/18", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "252", date: "9/18", buyer: "謝志援", shipping: "7-11 (60)", region: "台北華電"},
-            {id: "253", date: "9/22", buyer: "曾柏鈞", shipping: "宅配 (80)", region: "台中南區"},
-            {id: "254", date: "9/28", buyer: "陳鈺淵", shipping: "7-11 (60)", region: "新北和平"},
-            {id: "255", date: "9/28", buyer: "洪鋮錫", shipping: "7-11 (60)", region: "新北里商"},
-            {id: "256", date: "9/28", buyer: "許暉政", shipping: "7-11 (60)", region: "桃園美利堅"},
-            {id: "257", date: "9/28", buyer: "陳俊達", shipping: "7-11 (60)", region: "新竹金山街"},
-            {id: "258", date: "9/28", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "259", date: "9/28", buyer: "劉群靖", shipping: "7-11 (60)", region: "雲林育北"},
-            {id: "260", date: "9/30", buyer: "吳國維", shipping: "宅配 (37)", region: "新北中和"},
-            {id: "261", date: "9/30", buyer: "茹怡蓁", shipping: "宅配 (37)", region: "桃園中壢"},
-            {id: "262", date: "9/30", buyer: "黃一文", shipping: "宅配 (37)", region: "台南安平"},
-            {id: "263", date: "9/30", buyer: "魯光明", shipping: "宅配 (37)", region: "高雄鳳山"},
-            {id: "264", date: "9/30", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "265", date: "9/30", buyer: "陶柏仁", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "266", date: "9/30", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "267", date: "10/1", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "268", date: "10/1", buyer: "鍾坤霖", shipping: "7-11 (60)", region: "台南新家專"},
-            {id: "269", date: "10/2", buyer: "蔡旻翰", shipping: "宅配 (37)", region: "台北士林"},
-            {id: "270", date: "10/2", buyer: "李佳龍", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "271", date: "10/2", buyer: "林柄男", shipping: "宅配 (37)", region: "新北中和"},
-            {id: "272", date: "10/3", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "273", date: "10/3", buyer: "洪偉翔", shipping: "宅配 (37)", region: "台中潭子"},
-            {id: "274", date: "10/3", buyer: "吳政鴻", shipping: "宅配 (37)", region: "雲林斗南"},
-            {id: "275", date: "10/3", buyer: "陶柏仁?", shipping: "宅配 (80)", region: "高雄楠梓"},
-            {id: "276", date: "10/3", buyer: "張瀚文", shipping: "宅配 (37)", region: "苗栗苑裡"},
-            {id: "277", date: "10/3", buyer: "曾柏鈞", shipping: "宅配 (37)", region: "台中南區"},
-            {id: "278", date: "10/4", buyer: "游承學", shipping: "7-11 (60)", region: "高雄博真"},
-            {id: "279", date: "10/6", buyer: "謝志援", shipping: "7-11 (60)", region: "台北華電"},
-            {id: "280", date: "10/6", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "281", date: "10/7", buyer: "鄭統良", shipping: "宅配 (37)", region: "台北南港"},
-            {id: "282", date: "10/7", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "283", date: "10/7", buyer: "張瀚文", shipping: "宅配 (37)", region: "苗栗苑裡"},
-            {id: "284", date: "10/7", buyer: "卓晏任", shipping: "宅配 (37)", region: "彰化伸港"},
-            {id: "285", date: "10/7", buyer: "謝豐帆", shipping: "宅配 (37)", region: "台南仁德"},
-            {id: "286", date: "10/7", buyer: "魯光明", shipping: "宅配 (37)", region: "高雄鳳山"},
-            {id: "287", date: "10/7", buyer: "施嘉盈", shipping: "宅配 (37)", region: "高雄新興"},
-            {id: "288", date: "10/7", buyer: "陳治宏", shipping: "宅配 (37)", region: "花蓮吉安"},
-            {id: "289", date: "10/9", buyer: "曾柏鈞", shipping: "宅配 (80)", region: "台中南區"},
-            {id: "290", date: "10/16", buyer: "吳宗翰", shipping: "宅配 (37)", region: "台北松山"},
-            {id: "291", date: "10/16", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "292", date: "10/16", buyer: "梁益紘", shipping: "宅配 (37)", region: "新竹香山"},
-            {id: "293", date: "10/16", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "294", date: "10/16", buyer: "黃一文", shipping: "宅配 (37)", region: "台南安平"},
-            {id: "295", date: "10/16", buyer: "陳治宏", shipping: "宅配 (37)", region: "花蓮吉安"},
-            {id: "296", date: "10/16", buyer: "翁志暉", shipping: "宅配 (37)", region: "澎湖馬公"},
-            {id: "297", date: "10/16", buyer: "吳岳興", shipping: "7-11 (60)", region: "新北慈佑"},
-            {id: "298", date: "10/16", buyer: "柯翔幃", shipping: "7-11 (60)", region: "新北淡欣"},
-            {id: "299", date: "10/16", buyer: "陳鈺淵", shipping: "7-11 (60)", region: "新北中平"},
-            {id: "300", date: "10/16", buyer: "侯宗佑", shipping: "7-11 (62)", region: "雲林褒旺"},
-            {id: "301", date: "10/22", buyer: "陳政雄", shipping: "全家 (53)", region: "新北學園"},
-            {id: "302", date: "10/22", buyer: "江易哲", shipping: "全家 (53)", region: "台中永豐"},
-            {id: "303", date: "10/22", buyer: "溫懷恩", shipping: "全家 (53)", region: "高雄聖王"},
-            {id: "304", date: "10/22", buyer: "張純鳳", shipping: "7-11 (60)", region: "新北傑元"},
-            {id: "305", date: "10/22", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "306", date: "10/22", buyer: "邱保衡", shipping: "7-11 (60)", region: "台中東加"},
-            {id: "307", date: "10/22", buyer: "劉群靖", shipping: "7-11 (60)", region: "雲林育北"},
-            {id: "308", date: "10/22", buyer: "穆育杰", shipping: "7-11 (60)", region: "台南體育"},
-            {id: "309", date: "10/22", buyer: "游承學", shipping: "7-11 (60)", region: "高雄博真"},
-            {id: "310", date: "10/23", buyer: "林皓偉", shipping: "宅配 (37)", region: "台北中正"},
-            {id: "311", date: "10/23", buyer: "李佳龍", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "312", date: "10/23", buyer: "李憲智", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "313", date: "10/23", buyer: "劉俐潁", shipping: "宅配 (37)", region: "桃園大溪"},
-            {id: "314", date: "10/23", buyer: "張梵谯", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "315", date: "10/23", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "316", date: "10/23", buyer: "魯光明", shipping: "宅配 (50)", region: "高雄鳳山"},
-            {id: "317", date: "10/23", buyer: "王姿晴", shipping: "宅配 (37)", region: "高雄大寮"},
-            {id: "318", date: "10/23", buyer: "施嘉盈", shipping: "宅配 (37)", region: "高雄新興"},
-            {id: "319", date: "10/23", buyer: "蔡漢英", shipping: "宅配 (37)", region: "台東縣"},
-            {id: "320", date: "10/29", buyer: "温懷恩", shipping: "全家 (53)", region: "高雄聖王"},
-            {id: "321", date: "10/29", buyer: "洪亦隆", shipping: "7-11 (60)", region: "新北得和"},
-            {id: "322", date: "10/29", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "323", date: "10/29", buyer: "邱保衡", shipping: "7-11 (60)", region: "台中東加"},
-            {id: "324", date: "10/29", buyer: "高嘉駿", shipping: "7-11 (60)", region: "彰化田尾"},
-            {id: "325", date: "10/29", buyer: "游承學", shipping: "7-11 (60)", region: "高雄博真"},
-            {id: "326", date: "10/30", buyer: "郭韶安", shipping: "宅配 (37)", region: "台北萬華"},
-            {id: "327", date: "10/30", buyer: "蘇宏聿", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "328", date: "10/30", buyer: "吳岳興", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "329", date: "10/30", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "330", date: "10/30", buyer: "李建逸", shipping: "宅配 (37)", region: "桃園市"},
-            {id: "331", date: "10/30", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "332", date: "10/30", buyer: "許苡歆", shipping: "宅配 (37)", region: "高雄小港"},
-            {id: "333", date: "10/30", buyer: "廖堃名", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "334", date: "10/30", buyer: "蔡漢英", shipping: "宅配 (37)", region: "台東縣"},
-            {id: "335", date: "11/4", buyer: "陳品妗", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "336", date: "11/4", buyer: "侯曄暘", shipping: "宅配 (37)", region: "新竹竹東"},
-            {id: "337", date: "11/4", buyer: "黃一文", shipping: "宅配 (37)", region: "台南安平"},
-            {id: "338", date: "11/4", buyer: "唐佳權", shipping: "7-11 (60)", region: "新竹仁順"},
-            {id: "339", date: "11/4", buyer: "王英樺", shipping: "7-11 (60)", region: "雲林儒虎"},
-            {id: "340", date: "11/4", buyer: "李政憲", shipping: "7-11 (60)", region: "雲林星光"},
-            {id: "341", date: "11/4", buyer: "蘇子杰", shipping: "7-11 (60)", region: "屏東英順"},
-            {id: "342", date: "11/7", buyer: "李佳龍", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "343", date: "11/7", buyer: "黃可薰", shipping: "宅配 (37)", region: "新北蘆洲"},
-            {id: "344", date: "11/7", buyer: "張惠珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "345", date: "11/7", buyer: "游薰傑", shipping: "宅配 (50)", region: "台中東區"},
-            {id: "346", date: "11/7", buyer: "林英君", shipping: "宅配 (37)", region: "台南學甲"},
-            {id: "347", date: "11/7", buyer: "陶柏仁", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "348", date: "11/7", buyer: "黃邵維", shipping: "7-11 (60)", region: "桃園欣富晟"},
-            {id: "349", date: "11/7", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "350", date: "11/7", buyer: "邱保衡", shipping: "7-11 (60)", region: "台中東加"},
-            {id: "351", date: "11/7", buyer: "陳治宏", shipping: "7-11 (60)", region: "花蓮志學"},
-            {id: "352", date: "11/12", buyer: "林松樺", shipping: "7-11 (60)", region: "台北一德"},
-            {id: "353", date: "11/12", buyer: "唐佳權", shipping: "7-11 (60)", region: "新竹仁順"},
-            {id: "354", date: "11/12", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "355", date: "1/12", buyer: "鍾賢能", shipping: "7-11 (60)", region: "高雄興壇"},
-            {id: "356", date: "1/13", buyer: "劉俐潁", shipping: "宅配 (37)", region: "桃園大溪"},
-            {id: "357", date: "1/13", buyer: "張瀚文", shipping: "宅配 (37)", region: "苗栗苑裡"},
-            {id: "358", date: "1/13", buyer: "陳宥廷", shipping: "宅配 (37)", region: "彰化二林"},
-            {id: "359", date: "1/13", buyer: "盧慶興", shipping: "宅配 (37)", region: "雲林林內"},
-            {id: "360", date: "1/13", buyer: "施嘉盈", shipping: "宅配 (37)", region: "高雄新興"},
-            {id: "361", date: "1/14", buyer: "吳修男", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "362", date: "1/14", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "363", date: "1/14", buyer: "張文渝", shipping: "宅配 (37)", region: "新北中和"},
-            {id: "364", date: "1/14", buyer: "侯曄暘", shipping: "宅配 (50)", region: "新竹竹東"},
-            {id: "365", date: "1/14", buyer: "王榮駿", shipping: "宅配 (50)", region: "台中南屯"},
-            {id: "366", date: "1/14", buyer: "吳政鴻", shipping: "宅配 (37)", region: "雲林斗南"},
-            {id: "367", date: "1/14", buyer: "施嘉盈", shipping: "宅配 (37)", region: "高雄新興"},
-            {id: "368", date: "1/15", buyer: "吳宗翰", shipping: "宅配 (170)", region: "台北松山"},
-            {id: "369", date: "1/17", buyer: "王芳誠", shipping: "宅配 (37)", region: "台北內湖"},
-            {id: "370", date: "1/17", buyer: "李建逸", shipping: "宅配 (37)", region: "桃園桃園"},
-            {id: "371", date: "1/17", buyer: "古惟中", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "372", date: "1/17", buyer: "張瀚文", shipping: "宅配 (37)", region: "苗栗苑裡"},
-            {id: "373", date: "1/17", buyer: "曾柏鈞", shipping: "宅配 (37)", region: "台中南區"},
-            {id: "374", date: "1/17", buyer: "陳信宏", shipping: "宅配 (37)", region: "彰化和美"},
-            {id: "375", date: "1/17", buyer: "林俊宏", shipping: "宅配 (37)", region: "高雄鼓山"},
-            {id: "376", date: "1/17", buyer: "張純鳳", shipping: "7-11 (60)", region: "新北傑元"},
-            {id: "377", date: "1/17", buyer: "李至凱", shipping: "7-11 (60)", region: "新北埔新"},
-            {id: "378", date: "1/17", buyer: "邱保衡", shipping: "7-11 (60)", region: "台中東加"},
-            {id: "379", date: "1/17", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "380", date: "1/17", buyer: "丁健哲", shipping: "7-11 (60)", region: "高雄建泰"},
-            {id: "381", date: "1/17", buyer: "陳治宏", shipping: "7-11 (60)", region: "花蓮治學"},
-            {id: "382", date: "1/18", buyer: "陶柏仁", shipping: "宅配 (80)", region: "高雄楠梓"},
-            {id: "383", date: "1/20", buyer: "黃紹維", shipping: "宅配 (60)", region: "桃園新富晟"},
-            {id: "384", date: "1/22", buyer: "劉俐潁", shipping: "宅配 (37)", region: "桃園大溪"},
-            {id: "385", date: "1/22", buyer: "蔡瑀晴", shipping: "宅配 (37)", region: "桃園龜山"},
-            {id: "386", date: "1/22", buyer: "黃一文", shipping: "宅配 (37)", region: "台南安平"},
-            {id: "387", date: "1/22", buyer: "柯翔幃", shipping: "7-11 (60)", region: "新北淡欣"},
-            {id: "388", date: "1/22", buyer: "唐佳權", shipping: "7-11 (60)", region: "新竹仁順"},
-            {id: "389", date: "1/22", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "390", date: "1/22", buyer: "穆育杰", shipping: "7-11 (60)", region: "台南體育"},
-            {id: "391", date: "1/24", buyer: "王榮駿", shipping: "宅配 (80)", region: "台中南屯"},
-            {id: "392", date: "1/27", buyer: "唐信權", shipping: "7-11 (60)", region: "新竹仁順"},
-            {id: "393", date: "1/27", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "394", date: "1/28", buyer: "嚴偉倫", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "395", date: "1/28", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "396", date: "1/28", buyer: "蔡瑀晴", shipping: "宅配 (37)", region: "桃園龜山"},
-            {id: "397", date: "1/28", buyer: "簡銘緯", shipping: "宅配 (37)", region: "台中南屯"},
-            {id: "398", date: "1/28", buyer: "王榮駿", shipping: "宅配 (50)", region: "台中南屯"},
-            {id: "399", date: "1/28", buyer: "蔡宜宏", shipping: "宅配 (37)", region: "台南中西"},
-            {id: "400", date: "1/28", buyer: "施嘉盈", shipping: "宅配 (37)", region: "高雄新興"},
-            {id: "401", date: "1/28", buyer: "蕭文德", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "402", date: "1/28", buyer: "陶柏仁", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "403", date: "1/28", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "404", date: "1/29", buyer: "李佳龍", shipping: "宅配 (70)", region: "新北板橋"},
-            {id: "405", date: "12/2", buyer: "周洛駿", shipping: "宅配 (90)", region: "新北三重"},
-            {id: "406", date: "12/3", buyer: "鄭雲蘭", shipping: "7-11 (60)", region: "新北正孝"},
-            {id: "407", date: "12/3", buyer: "唐佳權", shipping: "7-11 (60)", region: "新竹仁順"},
-            {id: "408", date: "12/3", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "409", date: "12/3", buyer: "蘇子杰", shipping: "7-11 (60)", region: "屏東英順"},
-            {id: "410", date: "12/4", buyer: "林柄男", shipping: "宅配 (37)", region: "新北中和"},
-            {id: "411", date: "12/4", buyer: "古惟中", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "412", date: "12/4", buyer: "劉俐潁", shipping: "宅配 (37)", region: "桃園大溪"},
-            {id: "413", date: "12/4", buyer: "曾嘉惇", shipping: "宅配 (37)", region: "台中大里"},
-            {id: "414", date: "12/4", buyer: "李亞綸", shipping: "宅配 (37)", region: "彰化員林"},
-            {id: "415", date: "12/4", buyer: "黃湘怡", shipping: "宅配 (37)", region: "嘉義太保"},
-            {id: "416", date: "12/4", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "417", date: "12/4", buyer: "林俊宏", shipping: "宅配 (37)", region: "高雄鼓山"},
-            {id: "418", date: "12/6", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "419", date: "12/6", buyer: "丁健哲", shipping: "7-11 (60)", region: "高雄建泰"},
-            {id: "420", date: "12/8", buyer: "林皓偉", shipping: "宅配 (37)", region: "台北中正"},
-            {id: "421", date: "12/8", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "422", date: "12/8", buyer: "張晏榕", shipping: "宅配 (37)", region: "新北中和"},
-            {id: "423", date: "12/8", buyer: "陳敏嘉", shipping: "宅配 (37)", region: "新竹東區"},
-            {id: "424", date: "12/8", buyer: "張慧珍", shipping: "宅配 (37)", region: "苗栗頭份"},
-            {id: "425", date: "12/8", buyer: "王榮駿", shipping: "宅配 (37)", region: "台中南屯"},
-            {id: "426", date: "12/8", buyer: "李孟修", shipping: "宅配 (37)", region: "高雄林園"},
-            {id: "427", date: "12/8", buyer: "盧正達", shipping: "宅配 (90)", region: "台北大安"},
-            {id: "428", date: "12/8", buyer: "李佳龍", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "429", date: "12/10", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "430", date: "12/11", buyer: "周洛駿", shipping: "7-11 (60)", region: "新北泰山"},
-            {id: "431", date: "12/11", buyer: "古惟中", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "432", date: "12/11", buyer: "蔡瑀晴", shipping: "宅配 (37)", region: "桃園龜山"},
-            {id: "433", date: "12/11", buyer: "王榮駿", shipping: "宅配 (37)", region: "台中南屯"},
-            {id: "434", date: "12/11", buyer: "李政憲", shipping: "宅配 (37)", region: "雲林西螺"},
-            {id: "435", date: "12/11", buyer: "成康淞", shipping: "宅配 (37)", region: "高雄左營"},
-            {id: "436", date: "12/11", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "437", date: "12/11", buyer: "温懷恩", shipping: "全家 (53)", region: "高雄聖王"},
-            {id: "438", date: "12/11", buyer: "鄭雲蘭", shipping: "7-11 (60)", region: "新北正孝"},
-            {id: "439", date: "12/13", buyer: "唐佳權", shipping: "7-11 (60)", region: "新竹仁順"},
-            {id: "440", date: "12/13", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "441", date: "12/13", buyer: "駱啟仁", shipping: "7-11 (60)", region: "台中漢展"},
-            {id: "442", date: "12/13", buyer: "王芳誠", shipping: "宅配 (37)", region: "台北內湖"},
-            {id: "443", date: "12/15", buyer: "何睿豪", shipping: "宅配 (37)", region: "苗栗竹南"},
-            {id: "444", date: "12/15", buyer: "游薰傑", shipping: "宅配 (37)", region: "台中東區"},
-            {id: "445", date: "12/15", buyer: "曾嘉惇", shipping: "宅配 (37)", region: "台中大里"},
-            {id: "446", date: "12/15", buyer: "陳宥廷", shipping: "宅配 (37)", region: "彰化二林"},
-            {id: "447", date: "12/15", buyer: "蔡忠霖", shipping: "宅配 (37)", region: "屏東縣"},
-            {id: "448", date: "12/19", buyer: "林皓緯", shipping: "宅配 (37)", region: "台北中正"},
-            {id: "449", date: "12/19", buyer: "陳世祥", shipping: "宅配 (37)", region: "新北新店"},
-            {id: "450", date: "12/19", buyer: "林柄男", shipping: "宅配 (37)", region: "新北中和"},
-            {id: "451", date: "12/19", buyer: "古惟中", shipping: "宅配 (37)", region: "桃園平鎮"},
-            {id: "452", date: "12/19", buyer: "黃湘怡", shipping: "宅配 (37)", region: "嘉義太保"},
-            {id: "453", date: "12/19", buyer: "黃文龍", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "454", date: "12/19", buyer: "徐永全", shipping: "7-11 (60)", region: "新北光仁"},
-            {id: "455", date: "12/19", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "456", date: "12/22", buyer: "簡佑潔", shipping: "全家 (53)", region: "新北站前"},
-            {id: "457", date: "12/22", buyer: "陳治宏", shipping: "7-11 (60)", region: "花蓮志學"},
-            {id: "458", date: "12/23", buyer: "王士旻", shipping: "宅配 (150)", region: "基隆七堵"},
-            {id: "459", date: "12/23", buyer: "傅柏鈞", shipping: "宅配 (37)", region: "台北內湖"},
-            {id: "460", date: "12/23", buyer: "陳麥昱", shipping: "宅配 (37)", region: "新竹香山"},
-            {id: "461", date: "12/23", buyer: "曾嘉惇", shipping: "宅配 (150)", region: "台中大里"},
-            {id: "462", date: "12/23", buyer: "李亞綸", shipping: "宅配 (37)", region: "彰化員林"},
-            {id: "463", date: "12/26", buyer: "邵鈺珊", shipping: "宅配 (37)", region: "台北萬華"},
-            {id: "464", date: "12/26", buyer: "周洛駿", shipping: "宅配 (37)", region: "新北泰山"},
-            {id: "465", date: "12/26", buyer: "翁志暉", shipping: "宅配 (37)", region: "澎湖馬公"},
-            {id: "466", date: "12/26", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "467", date: "12/26", buyer: "蘇子杰", shipping: "7-11 (60)", region: "屏東英順"},
-            {id: "468", date: "12/26", buyer: "黃士豪", shipping: "全家 (53)", region: "高雄平和"},
-            {id: "469", date: "12/29", buyer: "王士旻", shipping: "宅配 (37)", region: "基隆七堵"},
-            {id: "470", date: "12/29", buyer: "張稚豪", shipping: "宅配 (37)", region: "桃園大園"},
-            {id: "471", date: "12/29", buyer: "徐永全", shipping: "7-11 (60)", region: "新北光仁"},
-            {id: "472", date: "12/29", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "473", date: "12/29", buyer: "許慧珠", shipping: "宅配 (60)", region: "屏東屏基"},
-            {id: "474", date: "12/31", buyer: "陳世祥", shipping: "宅配 (37)", region: "新北新店"},
-            {id: "475", date: "12/31", buyer: "邱保衡", shipping: "7-11 (60)", region: "台中東加"},
-            {id: "476", date: "12/31", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "477", date: "1/2", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "478", date: "1/2", buyer: "陳世祥", shipping: "宅配 (37)", region: "新北新店"},
-            {id: "479", date: "1/2", buyer: "陳敏嘉", shipping: "宅配 (37)", region: "新竹東區"},
-            {id: "480", date: "1/2", buyer: "陳英瑞", shipping: "宅配 (37)", region: "高雄左營"},
-            {id: "481", date: "1/2", buyer: "翁志暉", shipping: "宅配 (37)", region: "澎湖馬公"},
-            {id: "482", date: "1/8", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "483", date: "1/8", buyer: "曾嘉惇", shipping: "宅配 (37)", region: "台中大里"},
-            {id: "484", date: "1/8", buyer: "楊忠霖", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "485", date: "1/8", buyer: "陳偉明", shipping: "宅配 (37)", region: "高雄茄萣"},
-            {id: "486", date: "1/8", buyer: "郭韶安", shipping: "7-11 (60)", region: "台北漢中"},
-            {id: "487", date: "1/8", buyer: "洪梓為", shipping: "7-11 (60)", region: "台北龍泉"},
-            {id: "488", date: "1/8", buyer: "徐永全", shipping: "7-11 (60)", region: "新北光仁"},
-            {id: "489", date: "1/8", buyer: "楊勝閎", shipping: "7-11 (60)", region: "新北蘆華"},
-            {id: "490", date: "1/8", buyer: "李毓翔", shipping: "7-11 (60)", region: "新竹俊友"},
-            {id: "491", date: "1/8", buyer: "李癸褓", shipping: "7-11 (60)", region: "新竹展旺"},
-            {id: "492", date: "1/8", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "493", date: "1/8", buyer: "簡佑潔", shipping: "全家 (53)", region: "新北統寶"},
-            {id: "494", date: "1/9", buyer: "李佳龍", shipping: "宅配 (37)", region: "新北板橋"},
-            {id: "495", date: "1/9", buyer: "陳敏嘉", shipping: "宅配 (37)", region: "新竹東區"},
-            {id: "496", date: "1/9", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "497", date: "1/9", buyer: "陳治宏", shipping: "7-11 (60)", region: "花蓮志學"},
-            {id: "498", date: "1/10", buyer: "吳宗翰", shipping: "宅配 (170)", region: "台北內湖"},
-            {id: "499", date: "1/16", buyer: "邱保衡", shipping: "7-11 (60)", region: "台中東加"},
-            {id: "500", date: "1/21", buyer: "張純鳳", shipping: "7-11 (60)", region: "新莊傑元"},
-            {id: "501", date: "1/21", buyer: "李毓翔", shipping: "7-11 (60)", region: "新竹俊友"},
-            {id: "502", date: "1/21", buyer: "李癸褓", shipping: "7-11 (60)", region: "新竹展旺"},
-            {id: "503", date: "1/21", buyer: "向健文", shipping: "7-11 (60)", region: "台中梨山"},
-            {id: "504", date: "1/21", buyer: "蔣坤浩", shipping: "7-11 (60)", region: "嘉義祥壹"},
-            {id: "505", date: "1/22", buyer: "王士旻", shipping: "宅配 (37)", region: "基隆七堵"},
-            {id: "506", date: "1/22", buyer: "邱郁婷", shipping: "宅配 (37)", region: "新北土城"},
-            {id: "507", date: "1/22", buyer: "陳敏嘉", shipping: "宅配 (37)", region: "新竹東區"},
-            {id: "508", date: "1/22", buyer: "林俊宏", shipping: "7-11 (60)", region: "高雄鼓山"},
-            {id: "509", date: "1/22", buyer: "曾彥棠", shipping: "宅配 (37)", region: "屏東市"},
-            {id: "510", date: "1/23", buyer: "王士旻", shipping: "宅配 (37)", region: "基隆七堵"},
-            {id: "511", date: "1/23", buyer: "李安明", shipping: "宅配 (37)", region: "新北汐止"},
-            {id: "512", date: "1/23", buyer: "高唯榛", shipping: "宅配 (37)", region: "新北三重"},
-            {id: "513", date: "1/23", buyer: "張稚豪", shipping: "宅配 (37)", region: "桃園大園"},
-            {id: "514", date: "1/23", buyer: "成康淞", shipping: "宅配 (37)", region: "高雄左營"},
-            {id: "515", date: "1/23", buyer: "徐永全", shipping: "7-11 (60)", region: "新北光仁"},
-            {id: "516", date: "1/23", buyer: "李癸褓", shipping: "7-11 (60)", region: "新竹展旺"},
-            {id: "517", date: "1/28", buyer: "楊忠霖", shipping: "宅配 (62)", region: "高雄楠梓"},
-            {id: "518", date: "1/28", buyer: "蔣坤浩", shipping: "7-11 (120)", region: "嘉義祥壹"},
-            {id: "519", date: "1/30", buyer: "黃昱融", shipping: "宅配 (80)", region: "南投草屯"},
-            {id: "520", date: "1/30", buyer: "楊忠霖", shipping: "宅配 (37)", region: "高雄楠梓"},
-            {id: "521", date: "1/30", buyer: "黃猶翔", shipping: "7-11 (60)", region: "高雄沅興"}
-        ];
+        // initialData is loaded from data.js
         
         // Load from localStorage or use initial data
         let salesData = JSON.parse(localStorage.getItem('salesData')) || [...initialData];
@@ -1430,12 +804,24 @@
             `).join('');
         }
         
+        // Format date for display (from YYYY-MM-DD to M/D)
+        function formatDateForDisplay(dateStr) {
+            if (dateStr.includes('-')) {
+                const parts = dateStr.split('-');
+                return parseInt(parts[1]) + '/' + parseInt(parts[2]);
+            }
+            return dateStr;
+        }
+        
         // Modal functions
         function openModal() {
             document.getElementById('add-modal').classList.add('active');
             // Set default date to today
             const today = new Date();
-            document.getElementById('new-date').value = (today.getMonth() + 1) + '/' + today.getDate();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('new-date').value = `${yyyy}-${mm}-${dd}`;
         }
         
         function closeModal() {
@@ -1447,16 +833,19 @@
         }
         
         function addRecord() {
-            const date = document.getElementById('new-date').value.trim();
+            const dateInput = document.getElementById('new-date').value;
             const buyer = document.getElementById('new-buyer').value.trim();
             const shippingType = document.getElementById('new-shipping-type').value;
             const shippingCost = document.getElementById('new-shipping-cost').value;
             const region = document.getElementById('new-region').value.trim();
             
-            if (!date || !buyer || !region) {
+            if (!dateInput || !buyer || !region) {
                 alert('請填寫所有欄位!');
                 return;
             }
+            
+            // Convert date format
+            const date = formatDateForDisplay(dateInput);
             
             // Generate new ID
             const maxId = Math.max(...salesData.map(d => {
@@ -1510,46 +899,37 @@
             if (e.target === this) closeModal();
         });
         
-        // ===== 掃描/OCR 功能 =====
-        function openScanModal() {
-            document.getElementById('scan-modal').classList.add('active');
+        // ===== 快速新增功能 (簡化版) =====
+        function openQuickModal() {
+            document.getElementById('quick-modal').classList.add('active');
             document.getElementById('capturedImage').style.display = 'none';
             document.getElementById('photoInputWrapper').style.display = 'block';
-            document.getElementById('ocrProgress').style.display = 'none';
-            document.getElementById('extractedData').style.display = 'none';
-            document.getElementById('retakeBtn').style.display = 'none';
-            document.getElementById('saveScanBtn').style.display = 'none';
             document.getElementById('photoInput').value = '';
+            
             // Set today's date
             const today = new Date();
-            const month = today.getMonth() + 1;
-            const day = today.getDate();
-            document.getElementById('scan-date').value = month + '/' + day;
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('quick-date').value = `${yyyy}-${mm}-${dd}`;
+            
+            // Clear form
+            document.getElementById('quick-buyer').value = '';
+            document.getElementById('quick-region').value = '';
+            document.getElementById('quick-shipping-cost').value = '60';
         }
         
-        function closeScanModal() {
-            document.getElementById('scan-modal').classList.remove('active');
+        function closeQuickModal() {
+            document.getElementById('quick-modal').classList.remove('active');
         }
         
-        function retakePhoto() {
-            document.getElementById('capturedImage').style.display = 'none';
-            document.getElementById('photoInputWrapper').style.display = 'block';
-            document.getElementById('extractedData').style.display = 'none';
-            document.getElementById('retakeBtn').style.display = 'none';
-            document.getElementById('saveScanBtn').style.display = 'none';
-            document.getElementById('photoInput').value = '';
-        }
-        
-        // Handle photo selection/capture
-        document.getElementById('photoInput').addEventListener('change', async function(e) {
+        // Handle photo selection/capture (optional reference only)
+        document.getElementById('photoInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
             
             const preview = document.getElementById('capturedImage');
             const inputWrapper = document.getElementById('photoInputWrapper');
-            const progressDiv = document.getElementById('ocrProgress');
-            const progressBar = document.getElementById('progressFill');
-            const progressText = document.getElementById('ocrStatus');
             
             // Show preview
             const reader = new FileReader();
@@ -1559,148 +939,31 @@
                 inputWrapper.style.display = 'none';
             };
             reader.readAsDataURL(file);
-            
-            // Show buttons
-            document.getElementById('retakeBtn').style.display = 'inline-block';
-            
-            // Start OCR
-            progressDiv.style.display = 'block';
-            progressBar.style.width = '0%';
-            progressText.textContent = '正在載入 OCR 引擎...';
-            
-            try {
-                // Initialize Tesseract worker
-                const worker = await Tesseract.createWorker('chi_tra+eng', 1, {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            const pct = Math.round(m.progress * 100);
-                            progressBar.style.width = pct + '%';
-                            progressText.textContent = '辨識中... ' + pct + '%';
-                        }
-                    }
-                });
-                
-                progressText.textContent = '正在辨識文字...';
-                
-                const { data: { text } } = await worker.recognize(file);
-                
-                await worker.terminate();
-                
-                progressDiv.style.display = 'none';
-                
-                // Parse the OCR result
-                parseOCRText(text);
-                
-            } catch (error) {
-                console.error('OCR Error:', error);
-                progressText.textContent = 'OCR 發生錯誤: ' + error.message;
-                progressBar.style.width = '0%';
-                // Still show form for manual entry
-                document.getElementById('extractedData').style.display = 'block';
-                document.getElementById('saveScanBtn').style.display = 'inline-block';
-            }
         });
         
-        function parseOCRText(text) {
-            console.log('OCR Result:', text);
-            
-            // Show the form and save button
-            document.getElementById('extractedData').style.display = 'block';
-            document.getElementById('saveScanBtn').style.display = 'inline-block';
-            document.getElementById('rawText').textContent = text || '(無法辨識文字，請手動輸入)';
-            
-            // Clean the text
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            
-            let buyer = '';
-            let shippingType = '宅配';
-            let shippingCost = 60;
-            let region = '';
-            let phone = '';
-            
-            // Try to extract information from the text
-            const fullText = text.replace(/\n/g, ' ');
-            
-            // Detect shipping method
-            if (fullText.includes('7-11') || fullText.includes('7-11') || fullText.includes('711') || fullText.includes('統一')) {
-                shippingType = '7-11';
-                shippingCost = 60;
-            } else if (fullText.includes('全家') || fullText.includes('FamilyMart')) {
-                shippingType = '全家';
-                shippingCost = 60;
-            } else {
-                shippingType = '宅配';
-                shippingCost = 37;
-            }
-            
-            // Try to find phone number (common formats: 09xx-xxx-xxx, 09xxxxxxxx)
-            const phoneMatch = fullText.match(/0[89]\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}/);
-            if (phoneMatch) {
-                phone = phoneMatch[0].replace(/[-\s]/g, '');
-            }
-            
-            // Try to find region/store name
-            // For 7-11/全家, look for store name patterns
-            const storeMatch = fullText.match(/([\u4e00-\u9fff]{2,6}店)/);
-            if (storeMatch && shippingType !== '宅配') {
-                region = storeMatch[1];
-            } else {
-                // Look for address patterns (city/county)
-                const addrMatch = fullText.match(/([\u4e00-\u9fff]+[縣市][\u4e00-\u9fff]+)/);
-                if (addrMatch) {
-                    region = addrMatch[1];
-                }
-            }
-            
-            // Try to find buyer name
-            const nameMatch = fullText.match(/(?:姓名|收件人|買家)[：:\s]*([^\d\s,，]{2,5})/);
-            if (nameMatch) {
-                buyer = nameMatch[1];
-            } else {
-                // Try first line or short text
-                for (const line of lines) {
-                    if (line.length >= 2 && line.length <= 8 && 
-                        !line.match(/^\d/) && 
-                        !line.includes('店') &&
-                        !line.includes('縣') && !line.includes('市') &&
-                        !line.includes('區') && !line.includes('路')) {
-                        buyer = line.replace(/[,，、。：:]/g, '');
-                        break;
-                    }
-                }
-            }
-            
-            // Fill in the form (matching actual HTML element IDs)
-            document.getElementById('scan-buyer').value = buyer;
-            document.getElementById('scan-shipping-type').value = shippingType;
-            document.getElementById('scan-shipping-cost').value = shippingCost;
-            document.getElementById('scan-region').value = region;
-            document.getElementById('scan-phone').value = phone;
-            
-            showToast('📝 文字辨識完成，請確認資料');
-        }
-        
-        function saveScanRecord() {
-            const date = document.getElementById('scan-date').value.trim();
-            const buyer = document.getElementById('scan-buyer').value.trim();
-            const shippingType = document.getElementById('scan-shipping-type').value;
-            const shippingCost = document.getElementById('scan-shipping-cost').value;
-            const region = document.getElementById('scan-region').value.trim();
+        function saveQuickRecord() {
+            const dateInput = document.getElementById('quick-date').value;
+            const buyer = document.getElementById('quick-buyer').value.trim();
+            const shippingType = document.getElementById('quick-shipping-type').value;
+            const shippingCost = document.getElementById('quick-shipping-cost').value;
+            const region = document.getElementById('quick-region').value.trim();
             
             if (!buyer) {
                 showToast('⚠️ 請填寫買家姓名');
                 return;
             }
-            if (!date) {
-                showToast('⚠️ 請填寫日期');
+            if (!dateInput) {
+                showToast('⚠️ 請選擇日期');
                 return;
             }
             
-            // Create new record (matching existing data structure)
-            const maxId = salesData.length > 0 ? Math.max(...salesData.map(d => parseInt(d.id))) : 0;
+            // Convert date format
+            const date = formatDateForDisplay(dateInput);
+            
+            // Create new record
+            const maxId = salesData.length > 0 ? Math.max(...salesData.map(d => parseInt(d.id) || 0)) : 0;
             const newId = maxId + 1;
             
-            // Format shipping like existing records: "7-11 (60)" or "宅配 (37)"
             const shippingStr = shippingType + ' (' + shippingCost + ')';
             
             const newRecord = {
@@ -1713,18 +976,18 @@
             
             salesData.unshift(newRecord);
             saveData();
-            closeScanModal();
+            closeQuickModal();
             filterData();
             updateStats();
             renderShippingChart();
             renderRegionChart();
             renderCustomerList();
-            showToast('✓ 已掃描新增紀錄 #' + newId);
+            showToast('✓ 已新增紀錄 #' + newId);
         }
         
-        // Close scan modal when clicking outside
-        document.getElementById('scan-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeScanModal();
+        // Close quick modal when clicking outside
+        document.getElementById('quick-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeQuickModal();
         });
         
         init();
