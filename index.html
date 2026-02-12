@@ -123,6 +123,63 @@
             border-color: #4A90D9;
         }
         
+        /* Auto-complete Suggestions */
+        .buyer-suggestions {
+            position: relative;
+        }
+        
+        .suggestions-list {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #4A90D9;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .suggestions-list.active {
+            display: block;
+        }
+        
+        .suggestion-item {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        
+        .suggestion-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestion-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .suggestion-details {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .suggestion-count {
+            font-size: 12px;
+            color: #999;
+            margin-top: 2px;
+        }
+        
         .modal-buttons {
             display: flex;
             gap: 10px;
@@ -566,9 +623,10 @@
                 <label>日期</label>
                 <input type="date" id="new-date">
             </div>
-            <div class="form-group">
+            <div class="form-group buyer-suggestions">
                 <label>買家姓名</label>
-                <input type="text" id="new-buyer" placeholder="輸入買家姓名">
+                <input type="text" id="new-buyer" placeholder="輸入買家姓名" autocomplete="off">
+                <div class="suggestions-list" id="new-buyer-suggestions"></div>
             </div>
             <div class="form-group">
                 <label>貨運方式</label>
@@ -623,9 +681,10 @@
                 <label>日期</label>
                 <input type="date" id="quick-date">
             </div>
-            <div class="form-group">
+            <div class="form-group buyer-suggestions">
                 <label>買家姓名</label>
-                <input type="text" id="quick-buyer" placeholder="買家姓名">
+                <input type="text" id="quick-buyer" placeholder="買家姓名" autocomplete="off">
+                <div class="suggestions-list" id="quick-buyer-suggestions"></div>
             </div>
             <div class="form-group">
                 <label>貨運方式</label>
@@ -1040,8 +1099,8 @@
         function formatDateForDisplay(dateStr) {
             if (dateStr.includes('-')) {
                 const parts = dateStr.split('-');
-                // Format: M/D/YYYY
-                return parseInt(parts[1]) + '/' + parseInt(parts[2]) + '/' + parts[0];
+                // Format: M/D/YYYY with apostrophe prefix to force text format in Google Sheets
+                return "'" + parseInt(parts[1]) + '/' + parseInt(parts[2]) + '/' + parts[0];
             }
             return dateStr;
         }
@@ -1055,6 +1114,9 @@
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('new-date').value = `${yyyy}-${mm}-${dd}`;
+            
+            // Setup autocomplete for this modal
+            setupBuyerAutocomplete('new-buyer', 'new-buyer-suggestions');
         }
         
         function closeModal() {
@@ -1178,6 +1240,9 @@
             document.getElementById('quick-region').value = '';
             document.getElementById('quick-full-address').value = '';
             document.getElementById('quick-shipping-cost').value = '60';
+            
+            // Setup autocomplete for this modal
+            setupBuyerAutocomplete('quick-buyer', 'quick-buyer-suggestions');
         }
         
         function closeQuickModal() {
@@ -1250,64 +1315,105 @@
         
         // Parse OCR text and auto-fill form
         function parseOCRText(text) {
-            // 清理OCR文字：移除多餘空白和換行
-            const cleanText = text.replace(/\s+/g, ' ').trim();
-            const fullText = cleanText.toUpperCase();
+            console.log('OCR原始文字:', text);
+            
+            // 按行分割文字
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            console.log('OCR分行結果:', lines);
+            
             let shippingType = '全家';
             let region = '';
             let buyer = '';
+            let fullAddress = '';
             
-            console.log('OCR原始文字:', text);
-            console.log('OCR清理後:', cleanText);
-            
-            // 檢查貨運方式 - 更寬鬆的匹配
-            if (fullText.includes('7-11') || fullText.includes('711') || fullText.includes('7-') || fullText.includes('ELEVEN')) {
-                shippingType = '7-11';
-                
-                // 提取7-11店名 - 多種格式
-                const match711 = cleanText.match(/7-?11[\s\-]*(店|門市)?[（(]?([^)）\n,，]{2,15})/i);
-                if (match711 && match711[2]) {
-                    region = match711[2].trim().replace(/[0-9\s]/g, '').substring(0, 10);
+            // 新格式解析：結構化標籤（姓名/電話/地區/門市）
+            if (lines.length >= 3) {
+                // 第一行：買家姓名（2-4個中文字）
+                const firstLine = lines[0].replace(/[^a-zA-Z\u4e00-\u9fff]/g, '');
+                if (firstLine.length >= 2 && firstLine.length <= 4 && /[\u4e00-\u9fff]/.test(firstLine)) {
+                    buyer = firstLine;
                 }
-            } else if (fullText.includes('全家') || fullText.includes('FAMILY') || fullText.includes('全宗')) {
-                shippingType = '全家';
                 
-                // 提取全家店名
-                const matchFamily = cleanText.match(/全[家宗][\s]*(店|門市)?[（(]?([^)）\n,，]{2,15})/);
-                if (matchFamily && matchFamily[2]) {
-                    region = matchFamily[2].trim().replace(/[0-9\s]/g, '').substring(0, 10);
-                }
-            } else if (fullText.includes('路') || fullText.includes('街') || fullText.includes('里') || fullText.includes('號') || fullText.includes('巷') || fullText.includes('弄')) {
-                // 如果有完整地址，認定為宅配
-                shippingType = '宅配';
+                // 第二行：電話號碼（通常是09開頭或含數字）- 僅記錄但不填入表單
+                // const phoneLine = lines[1];
                 
-                // 提取縣市區（更精確）
-                const cityMatch = cleanText.match(/([\u4e00-\u9fff]{2,3}[縣市])/);
-                const distMatch = cleanText.match(/([\u4e00-\u9fff]{2,3}[區鄉鎮市])/);
-                if (cityMatch && distMatch) {
-                    region = cityMatch[1].replace('縣','').replace('市','') + distMatch[1].replace('區','').replace('鄉','').replace('鎮','').replace('市','');
-                } else if (cityMatch) {
-                    region = cityMatch[1];
-                } else if (distMatch) {
-                    region = distMatch[1];
+                // 第三行：地區（如：高雄美濃、台北大安）
+                const regionLine = lines[2];
+                // 提取地區名稱
+                const cityMatch = regionLine.match(/([\u4e00-\u9fff]{2,3})([\u4e00-\u9fff]{2,4})/);
+                if (cityMatch) {
+                    // 組合城市+區域，例如：高雄美濃
+                    region = cityMatch[1] + cityMatch[2].replace(/縣|市|區|鄉|鎮/g, '');
+                } else {
+                    // 若無法解析，直接使用原文
+                    region = regionLine.replace(/[0-9０-９]/g, '').trim();
                 }
-            }
-            
-            // 嘗試提取買家姓名（通常是2-4個中文字，排除地址相關詞）
-            const excludeWords = ['號', '路', '街', '里', '巷', '弄', '樓', '層', '縣', '市', '區', '鄉', '鎮', '村', '全家', '門市', '店名', '收件', '寄件'];
-            const nameMatches = cleanText.match(/([\u4e00-\u9fff]{2,4})/g);
-            if (nameMatches) {
-                for (const name of nameMatches) {
-                    let isValid = name.length >= 2 && name.length <= 4;
-                    for (const word of excludeWords) {
-                        if (name.includes(word)) {
-                            isValid = false;
+                
+                // 第四行：配送方式+門市（如：7-11興埔門市）
+                if (lines.length >= 4) {
+                    const shippingLine = lines[3];
+                    const upperShipping = shippingLine.toUpperCase();
+                    
+                    if (upperShipping.includes('7-11') || upperShipping.includes('711') || upperShipping.includes('SEVEN')) {
+                        shippingType = '7-11';
+                        // 提取門市名稱
+                        const storeName = shippingLine.replace(/7-?11|SEVEN|店|門市|興|埔/gi, '').trim();
+                        if (storeName) {
+                            region = region + ' ' + storeName;
+                        }
+                    } else if (upperShipping.includes('全家') || upperShipping.includes('FAMILY')) {
+                        shippingType = '全家';
+                        const storeName = shippingLine.replace(/全家|店|門市/g, '').trim();
+                        if (storeName) {
+                            region = region + ' ' + storeName;
+                        }
+                    } else if (upperShipping.includes('宅配') || upperShipping.includes('黑貓') || upperShipping.includes('新竹')) {
+                        shippingType = '宅配';
+                    }
+                }
+            } else {
+                // 舊格式：自由格式文字解析（備用方案）
+                const cleanText = text.replace(/\s+/g, ' ').trim();
+                const fullText = cleanText.toUpperCase();
+                
+                // 檢查貨運方式
+                if (fullText.includes('7-11') || fullText.includes('711') || fullText.includes('SEVEN')) {
+                    shippingType = '7-11';
+                    const match711 = cleanText.match(/7-?11[\s\-]*(店|門市)?[（(]?([^)）\n,，]{2,15})/i);
+                    if (match711 && match711[2]) {
+                        region = match711[2].trim().replace(/[0-9\s]/g, '').substring(0, 15);
+                    }
+                } else if (fullText.includes('全家') || fullText.includes('FAMILY')) {
+                    shippingType = '全家';
+                    const matchFamily = cleanText.match(/全[家宗][\s]*(店|門市)?[（(]?([^)）\n,，]{2,15})/);
+                    if (matchFamily && matchFamily[2]) {
+                        region = matchFamily[2].trim().replace(/[0-9\s]/g, '').substring(0, 15);
+                    }
+                } else if (fullText.includes('路') || fullText.includes('街') || fullText.includes('號')) {
+                    shippingType = '宅配';
+                    const cityMatch = cleanText.match(/([\u4e00-\u9fff]{2,3}[縣市])/);
+                    const distMatch = cleanText.match(/([\u4e00-\u9fff]{2,3}[區鄉鎮市])/);
+                    if (cityMatch && distMatch) {
+                        region = cityMatch[1].replace(/縣|市/g, '') + distMatch[1].replace(/區|鄉|鎮|市/g, '');
+                    }
+                }
+                
+                // 提取買家姓名
+                const excludeWords = ['號', '路', '街', '縣', '市', '區', '全家', '門市', '收件'];
+                const nameMatches = cleanText.match(/([\u4e00-\u9fff]{2,4})/g);
+                if (nameMatches) {
+                    for (const name of nameMatches) {
+                        let isValid = name.length >= 2 && name.length <= 4;
+                        for (const word of excludeWords) {
+                            if (name.includes(word)) {
+                                isValid = false;
+                                break;
+                            }
+                        }
+                        if (isValid) {
+                            buyer = name;
                             break;
                         }
-                    }
-                    if (isValid) {
-                        buyer = name;
-                        break;
                     }
                 }
             }
@@ -1390,6 +1496,172 @@
         document.getElementById('quick-modal').addEventListener('click', function(e) {
             if (e.target === this) closeQuickModal();
         });
+        
+        // ===== 買家自動完成功能 =====
+        function setupBuyerAutocomplete(inputId, suggestionsId) {
+            const input = document.getElementById(inputId);
+            const suggestionsList = document.getElementById(suggestionsId);
+            
+            // Remove any existing event listeners by cloning
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+            
+            // Get the fresh reference
+            const buyerInput = document.getElementById(inputId);
+            const suggestionsDiv = document.getElementById(suggestionsId);
+            
+            // Input event - show suggestions
+            buyerInput.addEventListener('input', function() {
+                const query = this.value.trim();
+                
+                if (query.length < 1) {
+                    suggestionsDiv.classList.remove('active');
+                    return;
+                }
+                
+                // Search for matching buyers
+                const matches = findBuyerHistory(query);
+                
+                if (matches.length === 0) {
+                    suggestionsDiv.classList.remove('active');
+                    return;
+                }
+                
+                // Display suggestions
+                suggestionsDiv.innerHTML = '';
+                matches.forEach(match => {
+                    const item = document.createElement('div');
+                    item.className = 'suggestion-item';
+                    item.innerHTML = `
+                        <div class="suggestion-name">${match.buyer}</div>
+                        <div class="suggestion-details">${match.shipping} → ${match.region}</div>
+                        <div class="suggestion-count">過去訂單：${match.count} 次</div>
+                    `;
+                    
+                    item.addEventListener('click', function() {
+                        // Fill in the form with this buyer's data
+                        buyerInput.value = match.buyer;
+                        
+                        // Determine which modal we're in
+                        const isQuickModal = inputId.startsWith('quick');
+                        const prefix = isQuickModal ? 'quick' : 'new';
+                        
+                        // Auto-fill shipping type
+                        const shippingSelect = document.getElementById(`${prefix}-shipping-type`);
+                        if (shippingSelect) {
+                            shippingSelect.value = match.shipping;
+                        }
+                        
+                        // Auto-fill region
+                        const regionInput = document.getElementById(`${prefix}-region`);
+                        if (regionInput) {
+                            regionInput.value = match.region;
+                        }
+                        
+                        // Auto-fill full address if available
+                        if (match.full_address) {
+                            const addressInput = document.getElementById(`${prefix}-full-address`);
+                            if (addressInput) {
+                                addressInput.value = match.full_address;
+                            }
+                        }
+                        
+                        suggestionsDiv.classList.remove('active');
+                        showToast('✓ 已自動填入 ' + match.buyer + ' 的常用資料');
+                    });
+                    
+                    suggestionsDiv.appendChild(item);
+                });
+                
+                suggestionsDiv.classList.add('active');
+            });
+            
+            // Click outside to close
+            document.addEventListener('click', function(e) {
+                if (!buyerInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.classList.remove('active');
+                }
+            });
+        }
+        
+        function findBuyerHistory(query) {
+            // Find all records matching the query
+            const matchingRecords = salesData.filter(record => 
+                record.buyer && record.buyer.includes(query)
+            );
+            
+            if (matchingRecords.length === 0) return [];
+            
+            // Group by buyer name and aggregate data
+            const buyerMap = {};
+            matchingRecords.forEach(record => {
+                const buyer = record.buyer;
+                if (!buyerMap[buyer]) {
+                    buyerMap[buyer] = {
+                        buyer: buyer,
+                        records: [],
+                        shippingCounts: {},
+                        regionCounts: {}
+                    };
+                }
+                
+                buyerMap[buyer].records.push(record);
+                
+                // Count shipping types
+                const shipping = record.shipping ? record.shipping.split(' ')[0] : '';
+                buyerMap[buyer].shippingCounts[shipping] = (buyerMap[buyer].shippingCounts[shipping] || 0) + 1;
+                
+                // Count regions
+                const region = record.region || '';
+                buyerMap[buyer].regionCounts[region] = (buyerMap[buyer].regionCounts[region] || 0) + 1;
+            });
+            
+            // Convert to array and get most common shipping/region for each buyer
+            const results = Object.values(buyerMap).map(data => {
+                // Find most common shipping type
+                let mostCommonShipping = '';
+                let maxShippingCount = 0;
+                for (const [shipping, count] of Object.entries(data.shippingCounts)) {
+                    if (count > maxShippingCount) {
+                        maxShippingCount = count;
+                        mostCommonShipping = shipping;
+                    }
+                }
+                
+                // Find most common region
+                let mostCommonRegion = '';
+                let maxRegionCount = 0;
+                for (const [region, count] of Object.entries(data.regionCounts)) {
+                    if (count > maxRegionCount) {
+                        maxRegionCount = count;
+                        mostCommonRegion = region;
+                    }
+                }
+                
+                // Get most recent full address if any
+                let fullAddress = '';
+                for (let i = data.records.length - 1; i >= 0; i--) {
+                    if (data.records[i].full_address) {
+                        fullAddress = data.records[i].full_address;
+                        break;
+                    }
+                }
+                
+                return {
+                    buyer: data.buyer,
+                    shipping: mostCommonShipping,
+                    region: mostCommonRegion,
+                    full_address: fullAddress,
+                    count: data.records.length
+                };
+            });
+            
+            // Sort by record count (most frequent buyers first)
+            results.sort((a, b) => b.count - a.count);
+            
+            // Return top 5 matches
+            return results.slice(0, 5);
+        }
         
         // Initial load
         loadData();
