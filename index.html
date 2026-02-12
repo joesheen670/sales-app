@@ -253,24 +253,6 @@
             transform: scale(1.02);
         }
         
-        .sync-btn {
-            background: linear-gradient(135deg, #9B59B6, #8E44AD);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .sync-btn:hover {
-            transform: scale(1.02);
-        }
-        
         .toast {
             position: fixed;
             bottom: 30px;
@@ -729,7 +711,6 @@
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="add-btn" onclick="openModal()">➕ 新增紀錄</button>
                         <button class="quick-btn" onclick="openQuickModal()">📝 快速新增</button>
-                        <button class="sync-btn" onclick="loadData()">🔄 同步資料</button>
                     </div>
                     <span class="sync-status" id="sync-status">
                         <span>☁️</span> 連接 Google Sheets
