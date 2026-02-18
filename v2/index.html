@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="銷售管理 v2">
+    <title>銷售管理 v2</title>
+    <style>
+/* ════════════════════════════════════════
+   Reset & Variables
+════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+    --bg:        #0d1117;
+    --s1:        #161b22;
+    --s2:        #21262d;
+    --s3:        #30363d;
+    --border:    rgba(255,255,255,0.1);
+    --text:      #e6edf3;
+    --dim:       #7d8590;
+
+    /* 狀態色 */
+    --c-new:     #58a6ff;   /* 新訂單 */
+    --c-paid:    #d29922;   /* 已收款 */
+    --c-ship:    #a855f7;   /* 出貨中 */
+    --c-done:    #3fb950;   /* 完成 */
+    --c-cancel:  #6e7681;   /* 取消 */
+
+    --red:   #e94560;
+    --green: #3fb950;
+    --blue:  #58a6ff;
+    --gold:  #d29922;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 80px;
+}
+
+/* ════════════════════════════════════════
+   Loading
+════════════════════════════════════════ */
+.loading-overlay {
+    display: flex; position: fixed; inset: 0;
+    background: rgba(13,17,23,0.95); z-index: 9999;
+    flex-direction: column; justify-content: center; align-items: center; gap: 14px;
+}
+.loading-overlay.hidden { display: none; }
+.spinner {
+    width: 38px; height: 38px;
+    border: 3px solid rgba(255,255,255,0.08);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: var(--dim); font-size: 14px; }
+
+/* ════════════════════════════════════════
+   Toast
+════════════════════════════════════════ */
+.toast {
+    position: fixed; bottom: 90px; left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--s2); color: var(--text);
+    padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    z-index: 5000; transition: transform .25s ease; white-space: nowrap;
+    pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.ok  { border-color: var(--green); }
+.toast.err { border-color: var(--red); }
+
+/* ════════════════════════════════════════
+   Top Bar
+════════════════════════════════════════ */
+.topbar {
+    position: sticky; top: 0; z-index: 300;
+    background: rgba(13,17,23,0.97);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    height: 54px;
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px;
+}
+.topbar-title { font-size: 16px; font-weight: 700; flex: 1; }
+.topbar-badge {
+    font-size: 11px; padding: 3px 10px;
+    background: rgba(88,166,255,0.12);
+    color: var(--blue); border-radius: 10px;
+    border: 1px solid rgba(88,166,255,0.25);
+}
+.btn-add {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--blue); color: white;
+    border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: opacity .2s;
+}
+.btn-add:hover { opacity: .85; }
+
+/* ════════════════════════════════════════
+   Stage Tabs
+════════════════════════════════════════ */
+.stage-tabs {
+    display: flex; overflow-x: auto; gap: 0;
+    background: var(--s1);
+    border-bottom: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.stage-tabs::-webkit-scrollbar { display: none; }
+
+.stage-tab {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    background: none; border: none;
+    color: var(--dim); font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all .2s; position: relative;
+}
+.stage-tab.active { color: var(--text); }
+.stage-tab[data-stage="all"].active    { border-bottom-color: var(--dim); }
+.stage-tab[data-stage="new"].active    { border-bottom-color: var(--c-new);  color: var(--c-new); }
+.stage-tab[data-stage="paid"].active   { border-bottom-color: var(--c-paid); color: var(--c-paid); }
+.stage-tab[data-stage="ship"].active   { border-bottom-color: var(--c-ship); color: var(--c-ship); }
+.stage-tab[data-stage="done"].active   { border-bottom-color: var(--c-done); color: var(--c-done); }
+
+.tab-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%; font-size: 10px;
+    margin-left: 5px; font-weight: 700;
+}
+.stage-tab.active .tab-count { background: currentColor; color: var(--bg); }
+
+/* ════════════════════════════════════════
+   Stats Strip
+════════════════════════════════════════ */
+.stats-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--border);
+    background: var(--s1);
+}
+.stat-cell {
+    padding: 10px 8px; text-align: center;
+    border-right: 1px solid var(--border);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-lbl { font-size: 10px; color: var(--dim); margin-bottom: 3px; }
+.stat-val { font-size: 16px; font-weight: 700; }
+
+/* ════════════════════════════════════════
+   Search
+════════════════════════════════════════ */
+.search-bar {
+    padding: 10px 16px;
+    background: var(--s1);
+    border-bottom: 1px solid var(--border);
+}
+.search-bar input {
+    width: 100%; padding: 9px 14px;
+    background: var(--s2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px; outline: none;
+}
+.search-bar input::placeholder { color: var(--dim); }
+.search-bar input:focus { border-color: var(--blue); }
+
+/* ════════════════════════════════════════
+   Order Cards
+════════════════════════════════════════ */
+.order-list {
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.empty-state {
+    text-align: center; padding: 60px 20px; color: var(--dim);
+}
+.empty-icon { font-size: 40px; display: block; margin-bottom: 10px; }
+
+.order-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 14px; overflow: hidden;
+    transition: border-color .2s;
+}
+/* Stage left border */
+.order-card[data-stage="new"]  { border-left: 3px solid var(--c-new); }
+.order-card[data-stage="paid"] { border-left: 3px solid var(--c-paid); }
+.order-card[data-stage="ship"] { border-left: 3px solid var(--c-ship); }
+.order-card[data-stage="done"] { border-left: 3px solid var(--c-done); }
+.order-card[data-stage="cancel"] { border-left: 3px solid var(--c-cancel); opacity: .6; }
+
+.card-top {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px 10px; cursor: pointer;
+}
+.card-id  { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+.card-buyer { font-weight: 700; font-size: 15px; flex: 1; }
+.card-date  { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+.stage-badge {
+    font-size: 11px; padding: 3px 9px; border-radius: 10px;
+    font-weight: 700; flex-shrink: 0;
+}
+.sb-new    { background: rgba(88,166,255,.15);  color: var(--c-new); }
+.sb-paid   { background: rgba(210,153,34,.15);  color: var(--c-paid); }
+.sb-ship   { background: rgba(168,85,247,.15);  color: var(--c-ship); }
+.sb-done   { background: rgba(63,185,80,.15);   color: var(--c-done); }
+.sb-cancel { background: rgba(110,118,129,.15); color: var(--c-cancel); }
+
+.card-summary {
+    padding: 0 14px 12px;
+    display: flex; flex-wrap: wrap; gap: 10px;
+    font-size: 13px;
+}
+.cs-item { display: flex; flex-direction: column; gap: 2px; }
+.cs-lbl  { font-size: 10px; color: var(--dim); }
+.cs-val  { font-weight: 600; }
+.cs-val.profit-pos { color: var(--green); }
+.cs-val.profit-neg { color: var(--red); }
+.cs-val.profit-nil { color: var(--dim); }
+
+/* Card Detail (expandable) */
+.card-detail {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 14px;
+    background: rgba(255,255,255,0.02);
+}
+.order-card.expanded .card-detail { display: block; }
+.card-arrow { color: var(--dim); font-size: 11px; transition: transform .2s; flex-shrink: 0; }
+.order-card.expanded .card-arrow { transform: rotate(180deg); }
+
+/* Detail sections */
+.detail-section { margin-bottom: 16px; }
+.detail-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--dim); margin-bottom: 8px;
+}
+.detail-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.detail-field { display: flex; flex-direction: column; gap: 3px; }
+.detail-field.full { grid-column: 1 / -1; }
+.df-label { font-size: 11px; color: var(--dim); }
+.df-value { font-size: 14px; font-weight: 600; }
+.df-value.dim { color: var(--dim); font-weight: 400; font-size: 13px; }
+
+/* Action buttons */
+.action-row {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+}
+.act-btn {
+    flex: 1; padding: 10px 12px; border: none; border-radius: 9px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: opacity .2s; white-space: nowrap; min-width: 110px;
+}
+.act-btn:hover { opacity: .85; }
+.act-btn:disabled { opacity: .35; cursor: default; }
+.act-primary  { background: var(--blue);  color: white; }
+.act-gold     { background: var(--gold);  color: white; }
+.act-purple   { background: #a855f7;      color: white; }
+.act-green    { background: var(--green); color: white; }
+.act-danger   { background: transparent; color: var(--red); border: 1px solid rgba(233,69,96,.3); }
+.act-ghost    { background: rgba(255,255,255,.06); color: var(--text); }
+
+/* ════════════════════════════════════════
+   Modal
+════════════════════════════════════════ */
+.modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 1000;
+    justify-content: center; align-items: flex-end;
+    padding: 0;
+}
+.modal-overlay.active { display: flex; }
+
+.modal {
+    background: var(--s1);
+    border-radius: 20px 20px 0 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    width: 100%; max-width: 560px;
+    max-height: 92vh;
+    overflow-y: auto;
+    padding: 0 0 30px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+    animation: slideUp .25s ease;
+}
+@keyframes slideUp {
+    from { transform: translateY(60px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+.modal-handle {
+    width: 40px; height: 4px;
+    background: var(--s3); border-radius: 2px;
+    margin: 14px auto 0;
+}
+.modal-header {
+    display: flex; align-items: center;
+    padding: 16px 20px 10px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+}
+.modal-title { font-size: 17px; font-weight: 700; flex: 1; }
+.modal-close {
+    background: none; border: none; color: var(--dim);
+    font-size: 20px; cursor: pointer; padding: 4px 8px;
+    border-radius: 6px; transition: color .2s;
+}
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 16px 20px; }
+
+.form-group { margin-bottom: 14px; }
+.form-group label {
+    display: block; margin-bottom: 6px;
+    font-size: 13px; font-weight: 600; color: var(--dim);
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%; padding: 10px 14px;
+    background: var(--s2); border: 1px solid var(--border);
+    border-radius: 9px; color: var(--text); font-size: 15px; outline: none;
+    transition: border-color .2s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--blue); }
+.form-group select option { background: var(--s2); }
+.form-group textarea { resize: vertical; min-height: 70px; }
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: var(--dim); }
+
+/* Currency input */
+.input-prefix-wrap { position: relative; }
+.input-prefix {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px; font-weight: 700; pointer-events: none;
+    color: var(--dim);
+}
+.input-prefix.cny { color: #e63946; }
+.input-prefix.twd { color: var(--blue); }
+.input-prefix-wrap input { padding-left: 36px; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* CNY Converter inside modal */
+.cny-conv-box {
+    display: none; margin-top: -8px; margin-bottom: 12px;
+    padding: 10px 14px;
+    background: rgba(230,57,70,.07);
+    border: 1px solid rgba(230,57,70,.2);
+    border-radius: 9px;
+    align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.cny-conv-box.visible { display: flex; }
+.conv-result { font-size: 14px; font-weight: 700; color: var(--blue); }
+.conv-rate   { font-size: 11px; color: var(--dim); }
+.conv-apply  {
+    margin-left: auto; background: var(--blue); color: white;
+    border: none; border-radius: 7px; padding: 5px 12px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+}
+
+/* Rate chip inside modal */
+.rate-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--s2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px;
+    font-size: 12px; color: var(--dim); margin-bottom: 14px;
+}
+.rate-chip strong { color: var(--blue); }
+
+/* Profit preview */
+.profit-preview {
+    padding: 12px; border-radius: 9px;
+    background: var(--s2); margin-bottom: 14px;
+    display: none;
+}
+.profit-preview.visible { display: block; }
+.pp-row {
+    display: flex; justify-content: space-between;
+    font-size: 13px; padding: 3px 0; color: var(--dim);
+}
+.pp-row.total {
+    border-top: 1px solid var(--border);
+    margin-top: 5px; padding-top: 8px;
+    font-size: 15px; font-weight: 700; color: var(--text);
+}
+.pp-pos { color: var(--green); }
+.pp-neg { color: var(--red); }
+
+.modal-footer {
+    padding: 0 20px;
+    display: flex; gap: 10px;
+}
+.mf-btn {
+    flex: 1; padding: 13px; border: none; border-radius: 10px;
+    font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .2s;
+}
+.mf-btn:hover { opacity: .85; }
+.mf-btn:disabled { opacity: .4; cursor: default; }
+.mf-primary { background: var(--blue); color: white; }
+.mf-cancel  { background: var(--s2); color: var(--text); }
+
+/* ════════════════════════════════════════
+   Bottom Nav
+════════════════════════════════════════ */
+.bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(13,17,23,0.97);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    display: flex; height: 64px;
+    z-index: 200;
+}
+.nav-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    text-decoration: none; color: var(--dim);
+    font-size: 10px; font-weight: 600;
+    border: none; background: none; cursor: pointer;
+    transition: color .2s;
+}
+.nav-item.active, .nav-item:hover  { color: var(--blue); }
+.nav-icon { font-size: 20px; line-height: 1; }
+    </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">載入中...</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══ Top Bar ═══ -->
+<div class="topbar">
+    <div class="topbar-title">📋 銷售管理</div>
+    <span class="topbar-badge" id="rate-chip-top">匯率載入中...</span>
+    <button class="btn-add" onclick="openNewOrderModal()">＋ 新訂單</button>
+</div>
+
+<!-- ═══ Stage Tabs ═══ -->
+<div class="stage-tabs" id="stage-tabs">
+    <button class="stage-tab active" data-stage="all"    onclick="setStage('all',this)">全部<span class="tab-count" id="cnt-all">0</span></button>
+    <button class="stage-tab"       data-stage="new"    onclick="setStage('new',this)">💬 待確認<span class="tab-count" id="cnt-new">0</span></button>
+    <button class="stage-tab"       data-stage="paid"   onclick="setStage('paid',this)">💰 已收款<span class="tab-count" id="cnt-paid">0</span></button>
+    <button class="stage-tab"       data-stage="ship"   onclick="setStage('ship',this)">📦 出貨中<span class="tab-count" id="cnt-ship">0</span></button>
+    <button class="stage-tab"       data-stage="done"   onclick="setStage('done',this)">✅ 完成<span class="tab-count" id="cnt-done">0</span></button>
+</div>
+
+<!-- ═══ Stats ═══ -->
+<div class="stats-strip" id="stats-strip">
+    <div class="stat-cell"><div class="stat-lbl">筆數</div><div class="stat-val" id="st-count">0</div></div>
+    <div class="stat-cell"><div class="stat-lbl">銷售額 TWD</div><div class="stat-val" id="st-sale" style="color:var(--blue)">$0</div></div>
+    <div class="stat-cell"><div class="stat-lbl">成本 TWD</div><div class="stat-val" id="st-cost" style="color:var(--gold)">$0</div></div>
+    <div class="stat-cell"><div class="stat-lbl">利潤 TWD</div><div class="stat-val" id="st-profit">$0</div></div>
+</div>
+
+<!-- ═══ Search ═══ -->
+<div class="search-bar">
+    <input type="text" id="search-input" placeholder="🔍 搜尋買家姓名..." oninput="renderList()">
+</div>
+
+<!-- ═══ Order List ═══ -->
+<div class="order-list" id="order-list">
+    <div class="empty-state"><span class="empty-icon">📭</span>載入訂單中...</div>
+</div>
+
+<!-- ═══ New / Edit Order Modal ═══ -->
+<div class="modal-overlay" id="order-modal">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title" id="modal-title">新訂單</div>
+            <button class="modal-close" onclick="closeOrderModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <!-- 匯率提示 -->
+            <div class="rate-chip">
+                🇨🇳 即時匯率：<strong id="modal-rate-val">載入中</strong> &nbsp;1 CNY = ? TWD
+                <button onclick="fetchRate(true)" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;margin-left:4px;">🔄</button>
+            </div>
+
+            <!-- Step 1: 基本 -->
+            <div id="step-basic">
+                <div class="form-group">
+                    <label>👤 買家姓名 *</label>
+                    <input type="text" id="f-buyer" placeholder="例：王小明">
+                </div>
+                <div class="form-group">
+                    <label>📝 商品描述（選填）</label>
+                    <input type="text" id="f-product" placeholder="商品名稱或備註">
+                </div>
+                <div class="form-group">
+                    <label>📅 訂單日期</label>
+                    <input type="date" id="f-date">
+                </div>
+                <div class="form-group">
+                    <label>💵 銷售金額（新台幣 TWD）*</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix twd">NT$</span>
+                        <input type="number" id="f-sale" placeholder="0" min="0" step="1" oninput="updateProfitPreview()">
+                    </div>
+                </div>
+
+                <!-- 成本 CNY -->
+                <div class="form-group">
+                    <label>🔴 商品成本（人民幣 CNY）</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix cny">¥</span>
+                        <input type="number" id="f-cost-cny" placeholder="0.00" min="0" step="0.01" oninput="onCnyChange()">
+                    </div>
+                </div>
+                <!-- CNY 換算 -->
+                <div class="cny-conv-box" id="cny-conv">
+                    <span id="cny-from" style="color:#e63946;font-weight:700;"></span>
+                    <span style="color:var(--dim);">→</span>
+                    <span class="conv-result" id="cny-to"></span>
+                    <span class="conv-rate"   id="cny-rate-lbl"></span>
+                    <button class="conv-apply" onclick="applyCnyConv()">套用</button>
+                </div>
+
+                <div class="form-group">
+                    <label>💴 成本台幣 TWD（可手動填或由上方換算）</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix twd">NT$</span>
+                        <input type="number" id="f-cost-twd" placeholder="0" min="0" step="1" oninput="updateProfitPreview()">
+                    </div>
+                </div>
+
+                <!-- 利潤預覽 -->
+                <div class="profit-preview" id="profit-preview">
+                    <div class="pp-row"><span>銷售額</span><span id="pp-sale">$0</span></div>
+                    <div class="pp-row"><span>成本（台幣）</span><span id="pp-cost" style="color:var(--gold);">$0</span></div>
+                    <div class="pp-row"><span>運費</span><span id="pp-sc" style="color:var(--gold);">尚未安排</span></div>
+                    <div class="pp-row total"><span>預估利潤</span><span id="pp-profit">$0</span></div>
+                </div>
+
+                <div class="form-group">
+                    <label>📌 備註（選填）</label>
+                    <textarea id="f-note" placeholder="任何備註..."></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="mf-btn mf-cancel" onclick="closeOrderModal()">取消</button>
+            <button class="mf-btn mf-primary" id="modal-save-btn" onclick="saveOrder()">✓ 建立訂單</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Ship Modal（出貨安排）═══ -->
+<div class="modal-overlay" id="ship-modal">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title">📦 安排出貨 — <span id="ship-buyer"></span></div>
+            <button class="modal-close" onclick="closeShipModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>貨運方式</label>
+                    <select id="sh-type">
+                        <option value="7-11">7-11 超商取貨</option>
+                        <option value="全家">全家 超商取貨</option>
+                        <option value="宅配">宅配到府</option>
+                        <option value="面交">面交</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>運費 NT$</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix twd">NT$</span>
+                        <input type="number" id="sh-cost" value="60" min="0" step="1" oninput="updateShipPreview()">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" id="sh-store-group">
+                <label>門市 / 門市代碼</label>
+                <input type="text" id="sh-store" placeholder="例：中壢中正門市">
+            </div>
+            <div class="form-group" id="sh-addr-group" style="display:none">
+                <label>完整收件地址</label>
+                <textarea id="sh-addr" placeholder="縣市區路號"></textarea>
+            </div>
+            <div class="form-group">
+                <label>收件人（若不同於買家）</label>
+                <input type="text" id="sh-receiver" placeholder="留空則同買家">
+            </div>
+            <div class="form-group">
+                <label>電話</label>
+                <input type="tel" id="sh-phone" placeholder="09xx-xxxxxx">
+            </div>
+            <div class="form-group">
+                <label>出貨備註</label>
+                <input type="text" id="sh-note" placeholder="例：易碎品請小心">
+            </div>
+
+            <!-- 利潤更新預覽 -->
+            <div class="profit-preview visible" id="ship-profit-preview">
+                <div class="pp-row"><span>銷售額</span><span id="spp-sale">$0</span></div>
+                <div class="pp-row"><span>商品成本</span><span id="spp-cost" style="color:var(--gold)">$0</span></div>
+                <div class="pp-row"><span>運費</span><span id="spp-sc" style="color:var(--gold)">$0</span></div>
+                <div class="pp-row total"><span>最終利潤</span><span id="spp-profit">$0</span></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="mf-btn mf-cancel" onclick="closeShipModal()">取消</button>
+            <button class="mf-btn mf-primary" id="ship-save-btn" onclick="saveShipping()">📦 確認出貨</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Bottom Nav ═══ -->
+<div class="bottom-nav">
+    <button class="nav-item active" onclick="showPage('orders',this)">
+        <span class="nav-icon">📋</span>訂單
+    </button>
+    <button class="nav-item" onclick="showPage('stats',this)">
+        <span class="nav-icon">📊</span>統計
+    </button>
+    <button class="nav-item" onclick="window.location.href='../index.html'">
+        <span class="nav-icon">🔗</span>舊版
+    </button>
+</div>
+
+<!-- ═══ Stats Page (hidden by default) ═══ -->
+<div id="page-stats" style="display:none; padding:16px 16px 80px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;" id="stats-cards"></div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:12px;">📅 每月利潤</div>
+        <div id="monthly-chart"></div>
+    </div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:12px;">🏆 買家排行（利潤）</div>
+        <div id="buyer-chart"></div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  Config
+// ═══════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbxAjT6RSzctFMWH-aGjnZ-QMB-M6IDVWwzAh54Hy-4GgnGmtShUilU4dIKax7V6EH_viA/exec';
+
+const RATE_APIS = [
+    'https://api.frankfurter.app/latest?from=CNY&to=TWD',
+    'https://open.er-api.com/v6/latest/CNY'
+];
+const RATE_KEY    = 'v2_cny_twd';
+const RATE_TS_KEY = 'v2_cny_twd_ts';
+const RATE_TTL    = 30 * 60 * 1000;
+
+const ORDERS_KEY = 'v2_orders'; // localStorage
+
+// ═══════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════
+let orders     = [];   // All orders
+let cnyRate    = null; // 1 CNY = ? TWD
+let curStage   = 'all';
+let editingId  = null; // modal edit mode
+let shipTarget = null; // order being shipped
+
+// ═══════════════════════════════════════════════════════
+//  Boot
+// ═══════════════════════════════════════════════════════
+async function boot() {
+    loadOrders();
+    await Promise.all([
+        fetchRate(false),
+        syncFromSheets()
+    ]);
+    renderList();
+    hideLoading();
+}
+
+// ═══════════════════════════════════════════════════════
+//  Orders – localStorage
+// ═══════════════════════════════════════════════════════
+function loadOrders() {
+    try {
+        orders = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+    } catch(e) { orders = []; }
+}
+
+function persistOrders() {
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+}
+
+function nextId() {
+    const max = orders.reduce((m, o) => Math.max(m, parseInt(o.id) || 0), 0);
+    return String(max + 1);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Sync from Google Sheets (read existing data)
+// ═══════════════════════════════════════════════════════
+async function syncFromSheets() {
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 20000);
+        const res = await fetch(API_URL, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) return;
+        const raw = await res.json();
+
+        // 將舊版資料合併（只加入 localStorage 沒有的 id）
+        const existIds = new Set(orders.map(o => o.id));
+        let added = 0;
+        raw.forEach(d => {
+            const id = String(d.id || '');
+            if (!id || existIds.has(id)) return;
+            // 轉換成新格式
+            orders.push({
+                id,
+                buyer:       String(d.buyer || ''),
+                product:     '',
+                date:        String(d.date || ''),
+                sale:        0,
+                costCny:     0,
+                costTwd:     0,
+                shippingCost: (() => { const m = String(d.shipping||'').match(/\((\d+)\)/); return m ? parseInt(m[1]) : 0; })(),
+                shippingType: (() => { const s = String(d.shipping||''); if (s.includes('7-11')) return '7-11'; if (s.includes('全家')) return '全家'; if (s.includes('宅配')) return '宅配'; return '其他'; })(),
+                store:       String(d.region || ''),
+                address:     String(d.full_address || ''),
+                note:        '',
+                stage:       'done',  // 舊資料預設為完成
+                createdAt:   d.date || '',
+                paidAt:      '',
+                shippedAt:   '',
+                doneAt:      ''
+            });
+            existIds.add(id);
+            added++;
+        });
+        if (added > 0) {
+            persistOrders();
+            showToast(`📥 從舊版匯入 ${added} 筆`, 'ok');
+        }
+    } catch(e) { /* 靜默失敗 */ }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Exchange Rate
+// ═══════════════════════════════════════════════════════
+async function fetchRate(force = false) {
+    if (!force) {
+        const cached = localStorage.getItem(RATE_KEY);
+        const ts = parseInt(localStorage.getItem(RATE_TS_KEY) || '0');
+        if (cached && Date.now() - ts < RATE_TTL) {
+            cnyRate = parseFloat(cached);
+            updateRateUI();
+            return;
+        }
+    }
+    for (const url of RATE_APIS) {
+        try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 7000);
+            const res = await fetch(url, { signal: ctrl.signal });
+            clearTimeout(t);
+            if (!res.ok) continue;
+            const j = await res.json();
+            const r = j.rates && j.rates.TWD;
+            if (r) {
+                cnyRate = parseFloat(r);
+                localStorage.setItem(RATE_KEY, cnyRate);
+                localStorage.setItem(RATE_TS_KEY, Date.now());
+                updateRateUI();
+                if (force) showToast(`✅ 匯率已更新：1¥ = ${cnyRate.toFixed(4)} NT$`, 'ok');
+                return;
+            }
+        } catch(e) {}
+    }
+    const cached = localStorage.getItem(RATE_KEY);
+    cnyRate = cached ? parseFloat(cached) : 4.43;
+    updateRateUI();
+    if (force) showToast('⚠️ 無法更新匯率，使用快取', 'err');
+}
+
+function updateRateUI() {
+    const txt = cnyRate ? `1¥ = ${cnyRate.toFixed(4)} NT$` : '--';
+    document.getElementById('rate-chip-top').textContent = txt;
+    document.getElementById('modal-rate-val').textContent = cnyRate ? cnyRate.toFixed(4) : '--';
+}
+
+// ═══════════════════════════════════════════════════════
+//  Stage filter
+// ═══════════════════════════════════════════════════════
+function setStage(s, btn) {
+    curStage = s;
+    document.querySelectorAll('.stage-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderList();
+}
+
+function getFiltered() {
+    const q = document.getElementById('search-input').value.toLowerCase().trim();
+    return orders.filter(o => {
+        if (curStage !== 'all' && o.stage !== curStage) return false;
+        if (q && !o.buyer.toLowerCase().includes(q) && !o.id.includes(q)) return false;
+        return true;
+    }).sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+}
+
+// ═══════════════════════════════════════════════════════
+//  Render
+// ═══════════════════════════════════════════════════════
+function renderList() {
+    updateCounts();
+    const rows = getFiltered();
+    updateStats(rows);
+    const el = document.getElementById('order-list');
+    if (!rows.length) {
+        el.innerHTML = '<div class="empty-state"><span class="empty-icon">📭</span>這裡還沒有訂單</div>';
+        return;
+    }
+    el.innerHTML = rows.map(o => buildCard(o)).join('');
+}
+
+function updateCounts() {
+    const cnt = { new:0, paid:0, ship:0, done:0 };
+    orders.forEach(o => { if (cnt[o.stage] !== undefined) cnt[o.stage]++; });
+    document.getElementById('cnt-all').textContent  = orders.length;
+    document.getElementById('cnt-new').textContent  = cnt.new;
+    document.getElementById('cnt-paid').textContent = cnt.paid;
+    document.getElementById('cnt-ship').textContent = cnt.ship;
+    document.getElementById('cnt-done').textContent = cnt.done;
+}
+
+function updateStats(rows) {
+    let totSale = 0, totCost = 0, totProfit = 0;
+    rows.forEach(o => {
+        totSale   += o.sale    || 0;
+        totCost   += (o.costTwd || 0) + (o.shippingCost || 0);
+        totProfit += (o.sale || 0) - (o.costTwd || 0) - (o.shippingCost || 0);
+    });
+    document.getElementById('st-count').textContent  = rows.length;
+    document.getElementById('st-sale').textContent   = '$' + totSale.toLocaleString();
+    document.getElementById('st-cost').textContent   = '$' + totCost.toLocaleString();
+    const profitEl = document.getElementById('st-profit');
+    profitEl.textContent = (totProfit >= 0 ? '+$' : '-$') + Math.abs(totProfit).toLocaleString();
+    profitEl.style.color = totProfit > 0 ? 'var(--green)' : totProfit < 0 ? 'var(--red)' : 'var(--dim)';
+}
+
+function buildCard(o) {
+    const stageLbl = { new:'💬 待確認', paid:'💰 已收款', ship:'📦 出貨中', done:'✅ 完成', cancel:'取消' };
+    const stageCls = { new:'sb-new', paid:'sb-paid', ship:'sb-ship', done:'sb-done', cancel:'sb-cancel' };
+    const profit = (o.sale || 0) - (o.costTwd || 0) - (o.shippingCost || 0);
+    const hasFinance = o.sale > 0 || o.costTwd > 0;
+    const profitCls = !hasFinance ? 'profit-nil' : profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : 'profit-nil';
+    const profitTxt = !hasFinance ? '–' : (profit >= 0 ? '+$' : '-$') + Math.abs(profit).toLocaleString();
+
+    return `
+<div class="order-card" data-stage="${o.stage}" id="card-${o.id}">
+    <div class="card-top" onclick="toggleCard('${o.id}')">
+        <span class="card-id">#${o.id}</span>
+        <span class="card-buyer">${o.buyer}</span>
+        <span class="stage-badge ${stageCls[o.stage]}">${stageLbl[o.stage]||o.stage}</span>
+        <span class="card-date">${o.date||''}</span>
+        <span class="card-arrow">▼</span>
+    </div>
+    <div class="card-summary">
+        ${o.sale ? `<div class="cs-item"><span class="cs-lbl">售價</span><span class="cs-val" style="color:var(--blue)">NT$${o.sale.toLocaleString()}</span></div>` : ''}
+        ${o.costTwd ? `<div class="cs-item"><span class="cs-lbl">成本</span><span class="cs-val" style="color:var(--gold)">NT$${o.costTwd.toLocaleString()}${o.costCny ? ` (¥${o.costCny})` : ''}</span></div>` : ''}
+        ${hasFinance ? `<div class="cs-item"><span class="cs-lbl">利潤</span><span class="cs-val ${profitCls}">${profitTxt}</span></div>` : ''}
+        ${o.shippingType ? `<div class="cs-item"><span class="cs-lbl">貨運</span><span class="cs-val">${o.shippingType}${o.shippingCost ? ` NT$${o.shippingCost}` : ''}</span></div>` : ''}
+        ${o.store ? `<div class="cs-item"><span class="cs-lbl">門市/地址</span><span class="cs-val">${o.store}</span></div>` : ''}
+    </div>
+    <div class="card-detail" id="detail-${o.id}">
+        ${buildDetail(o)}
+    </div>
+</div>`;
+}
+
+function buildDetail(o) {
+    const profit = (o.sale || 0) - (o.costTwd || 0) - (o.shippingCost || 0);
+    const profitCls = profit > 0 ? 'pp-pos' : profit < 0 ? 'pp-neg' : '';
+
+    let actions = '';
+
+    if (o.stage === 'new') {
+        actions = `
+            <button class="act-btn act-gold" onclick="confirmPaid('${o.id}')">💰 確認收款</button>
+            <button class="act-btn act-ghost" onclick="editOrder('${o.id}')">✏️ 編輯</button>
+            <button class="act-btn act-danger" onclick="cancelOrder('${o.id}')">✕ 取消</button>`;
+    } else if (o.stage === 'paid') {
+        actions = `
+            <button class="act-btn act-purple" onclick="openShipModal('${o.id}')">📦 安排出貨</button>
+            <button class="act-btn act-ghost" onclick="editOrder('${o.id}')">✏️ 編輯金額</button>`;
+    } else if (o.stage === 'ship') {
+        actions = `
+            <button class="act-btn act-green" onclick="confirmDone('${o.id}')">✅ 確認完成</button>
+            <button class="act-btn act-ghost" onclick="openShipModal('${o.id}')">✏️ 修改出貨資料</button>`;
+    } else if (o.stage === 'done') {
+        actions = `<button class="act-btn act-ghost" onclick="editOrder('${o.id}')">✏️ 查看/編輯</button>`;
+    }
+
+    return `
+    <div class="detail-section">
+        <div class="detail-title">訂單資訊</div>
+        <div class="detail-grid">
+            <div class="detail-field"><span class="df-label">買家</span><span class="df-value">${o.buyer}</span></div>
+            <div class="detail-field"><span class="df-label">日期</span><span class="df-value">${o.date||'–'}</span></div>
+            ${o.product ? `<div class="detail-field full"><span class="df-label">商品</span><span class="df-value">${o.product}</span></div>` : ''}
+            ${o.note ? `<div class="detail-field full"><span class="df-label">備註</span><span class="df-value dim">${o.note}</span></div>` : ''}
+        </div>
+    </div>
+    <div class="detail-section">
+        <div class="detail-title">帳務</div>
+        <div class="detail-grid">
+            <div class="detail-field"><span class="df-label">售價 TWD</span><span class="df-value" style="color:var(--blue)">${o.sale ? 'NT$' + o.sale.toLocaleString() : '–'}</span></div>
+            <div class="detail-field"><span class="df-label">成本 CNY</span><span class="df-value" style="color:#e63946">${o.costCny ? '¥' + o.costCny : '–'}</span></div>
+            <div class="detail-field"><span class="df-label">成本 TWD</span><span class="df-value" style="color:var(--gold)">${o.costTwd ? 'NT$' + o.costTwd.toLocaleString() : '–'}</span></div>
+            <div class="detail-field"><span class="df-label">運費 TWD</span><span class="df-value">${o.shippingCost ? 'NT$' + o.shippingCost : '–'}</span></div>
+            <div class="detail-field full">
+                <span class="df-label">利潤</span>
+                <span class="df-value ${profit>0?'pp-pos':profit<0?'pp-neg':''}" style="font-size:16px;">
+                    ${o.sale > 0 ? (profit >= 0 ? '+' : '') + 'NT$' + profit.toLocaleString() : '–'}
+                </span>
+            </div>
+        </div>
+    </div>
+    ${o.shippingType ? `
+    <div class="detail-section">
+        <div class="detail-title">出貨資訊</div>
+        <div class="detail-grid">
+            <div class="detail-field"><span class="df-label">貨運方式</span><span class="df-value">${o.shippingType}</span></div>
+            <div class="detail-field"><span class="df-label">收件人</span><span class="df-value">${o.receiver || o.buyer}</span></div>
+            ${o.phone ? `<div class="detail-field"><span class="df-label">電話</span><span class="df-value">${o.phone}</span></div>` : ''}
+            ${o.store ? `<div class="detail-field full"><span class="df-label">門市 / 地址</span><span class="df-value">${o.store}${o.address ? '<br>' + o.address : ''}</span></div>` : ''}
+            ${o.shipNote ? `<div class="detail-field full"><span class="df-label">出貨備註</span><span class="df-value dim">${o.shipNote}</span></div>` : ''}
+        </div>
+    </div>` : ''}
+    <div class="action-row">${actions}</div>`;
+}
+
+function toggleCard(id) {
+    const card = document.getElementById('card-' + id);
+    card.classList.toggle('expanded');
+}
+
+// ═══════════════════════════════════════════════════════
+//  New / Edit Order Modal
+// ═══════════════════════════════════════════════════════
+function openNewOrderModal() {
+    editingId = null;
+    document.getElementById('modal-title').textContent = '＋ 新訂單';
+    document.getElementById('modal-save-btn').textContent = '✓ 建立訂單';
+
+    // Reset
+    const today = new Date();
+    document.getElementById('f-buyer').value    = '';
+    document.getElementById('f-product').value  = '';
+    document.getElementById('f-date').value     = today.toISOString().slice(0,10);
+    document.getElementById('f-sale').value     = '';
+    document.getElementById('f-cost-cny').value = '';
+    document.getElementById('f-cost-twd').value = '';
+    document.getElementById('f-note').value     = '';
+    document.getElementById('cny-conv').classList.remove('visible');
+    document.getElementById('profit-preview').classList.remove('visible');
+
+    document.getElementById('order-modal').classList.add('active');
+}
+
+function editOrder(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    editingId = id;
+    document.getElementById('modal-title').textContent = `✏️ 編輯 #${id} ${o.buyer}`;
+    document.getElementById('modal-save-btn').textContent = '✓ 儲存修改';
+
+    document.getElementById('f-buyer').value    = o.buyer;
+    document.getElementById('f-product').value  = o.product || '';
+    document.getElementById('f-date').value     = normalizeDate(o.date);
+    document.getElementById('f-sale').value     = o.sale || '';
+    document.getElementById('f-cost-cny').value = o.costCny || '';
+    document.getElementById('f-cost-twd').value = o.costTwd || '';
+    document.getElementById('f-note').value     = o.note || '';
+
+    onCnyChange();
+    updateProfitPreview();
+    document.getElementById('order-modal').classList.add('active');
+}
+
+function closeOrderModal() {
+    document.getElementById('order-modal').classList.remove('active');
+    editingId = null;
+}
+
+function normalizeDate(d) {
+    if (!d) return '';
+    // M/D/YYYY → YYYY-MM-DD
+    const m1 = d.match(/^(\d+)\/(\d+)\/(\d{4})$/);
+    if (m1) return `${m1[3]}-${m1[1].padStart(2,'0')}-${m1[2].padStart(2,'0')}`;
+    return d.slice(0,10);
+}
+
+async function saveOrder() {
+    const buyer = document.getElementById('f-buyer').value.trim();
+    if (!buyer) { showToast('⚠️ 請填寫買家姓名', 'err'); return; }
+
+    const dateVal = document.getElementById('f-date').value;
+    const sale    = parseFloat(document.getElementById('f-sale').value)     || 0;
+    const costCny = parseFloat(document.getElementById('f-cost-cny').value) || 0;
+    const costTwd = parseFloat(document.getElementById('f-cost-twd').value) || 0;
+
+    // 若有 CNY 但沒手動填 TWD，自動換算
+    const finalCostTwd = costTwd > 0 ? costTwd : (costCny > 0 && cnyRate ? Math.round(costCny * cnyRate) : 0);
+
+    const btn = document.getElementById('modal-save-btn');
+    btn.disabled = true; btn.textContent = '儲存中...';
+
+    if (editingId) {
+        const idx = orders.findIndex(o => o.id === editingId);
+        if (idx >= 0) {
+            orders[idx] = { ...orders[idx],
+                buyer, sale, costCny, costTwd: finalCostTwd,
+                product: document.getElementById('f-product').value.trim(),
+                date: dateVal, note: document.getElementById('f-note').value.trim()
+            };
+        }
+        showToast(`✅ #${editingId} 已更新`, 'ok');
+    } else {
+        const id = nextId();
+        orders.unshift({
+            id, buyer, sale, costCny, costTwd: finalCostTwd,
+            product: document.getElementById('f-product').value.trim(),
+            date: dateVal, note: document.getElementById('f-note').value.trim(),
+            stage: 'new',
+            shippingCost: 0, shippingType: '', store: '', address: '',
+            receiver: '', phone: '', shipNote: '',
+            createdAt: new Date().toISOString(), paidAt: '', shippedAt: '', doneAt: ''
+        });
+        // Push to Sheets
+        syncOrderToSheets(orders[0]);
+        showToast(`✅ 訂單 #${id} 已建立`, 'ok');
+    }
+
+    persistOrders();
+    closeOrderModal();
+    renderList();
+    btn.disabled = false;
+    btn.textContent = editingId ? '✓ 儲存修改' : '✓ 建立訂單';
+}
+
+// ═══════════════════════════════════════════════════════
+//  Stage transitions
+// ═══════════════════════════════════════════════════════
+function confirmPaid(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    if (!o.sale) {
+        if (!confirm('尚未填寫銷售金額，確定要標記為已收款嗎？')) return;
+    }
+    o.stage  = 'paid';
+    o.paidAt = new Date().toISOString();
+    persistOrders();
+    syncStageToSheets(id, 'paid');
+    renderList();
+    showToast(`💰 #${id} ${o.buyer} 已收款`, 'ok');
+}
+
+function confirmDone(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    o.stage  = 'done';
+    o.doneAt = new Date().toISOString();
+    persistOrders();
+    syncStageToSheets(id, 'done');
+    renderList();
+    showToast(`✅ #${id} ${o.buyer} 已完成`, 'ok');
+}
+
+function cancelOrder(id) {
+    if (!confirm('確定取消這筆訂單？')) return;
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    o.stage = 'cancel';
+    persistOrders();
+    renderList();
+    showToast(`✕ #${id} 已取消`);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Ship Modal
+// ═══════════════════════════════════════════════════════
+function openShipModal(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    shipTarget = id;
+    document.getElementById('ship-buyer').textContent = `${o.buyer} (#${id})`;
+    document.getElementById('sh-type').value    = o.shippingType || '7-11';
+    document.getElementById('sh-cost').value    = o.shippingCost || 60;
+    document.getElementById('sh-store').value   = o.store || '';
+    document.getElementById('sh-addr').value    = o.address || '';
+    document.getElementById('sh-receiver').value= o.receiver || '';
+    document.getElementById('sh-phone').value   = o.phone || '';
+    document.getElementById('sh-note').value    = o.shipNote || '';
+    onShipTypeChange();
+    updateShipPreview();
+    document.getElementById('ship-modal').classList.add('active');
+}
+
+function closeShipModal() {
+    document.getElementById('ship-modal').classList.remove('active');
+    shipTarget = null;
+}
+
+document.getElementById('sh-type').addEventListener('change', onShipTypeChange);
+function onShipTypeChange() {
+    const t = document.getElementById('sh-type').value;
+    const isHome = t === '宅配';
+    document.getElementById('sh-store-group').style.display = isHome ? 'none' : '';
+    document.getElementById('sh-addr-group').style.display  = isHome ? '' : 'none';
+    if (t === '宅配') {
+        document.getElementById('sh-cost').value = 100;
+    } else if (t === '面交') {
+        document.getElementById('sh-cost').value = 0;
+    } else {
+        document.getElementById('sh-cost').value = 60;
+    }
+    updateShipPreview();
+}
+
+function updateShipPreview() {
+    if (!shipTarget) return;
+    const o = orders.find(x => x.id === shipTarget);
+    if (!o) return;
+    const sc = parseFloat(document.getElementById('sh-cost').value) || 0;
+    const profit = (o.sale || 0) - (o.costTwd || 0) - sc;
+    document.getElementById('spp-sale').textContent   = 'NT$' + (o.sale || 0).toLocaleString();
+    document.getElementById('spp-cost').textContent   = '- NT$' + (o.costTwd || 0).toLocaleString();
+    document.getElementById('spp-sc').textContent     = '- NT$' + sc.toLocaleString();
+    const profitEl = document.getElementById('spp-profit');
+    profitEl.textContent = (profit >= 0 ? '+' : '') + 'NT$' + profit.toLocaleString();
+    profitEl.className = profit > 0 ? 'pp-pos' : profit < 0 ? 'pp-neg' : '';
+}
+
+async function saveShipping() {
+    const id = shipTarget;
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+
+    const btn = document.getElementById('ship-save-btn');
+    btn.disabled = true; btn.textContent = '儲存中...';
+
+    const t = document.getElementById('sh-type').value;
+    o.shippingType = t;
+    o.shippingCost = parseFloat(document.getElementById('sh-cost').value) || 0;
+    o.store        = t === '宅配' ? '' : document.getElementById('sh-store').value.trim();
+    o.address      = t === '宅配' ? document.getElementById('sh-addr').value.trim() : '';
+    o.receiver     = document.getElementById('sh-receiver').value.trim();
+    o.phone        = document.getElementById('sh-phone').value.trim();
+    o.shipNote     = document.getElementById('sh-note').value.trim();
+    o.stage        = 'ship';
+    o.shippedAt    = new Date().toISOString();
+
+    persistOrders();
+    syncShipToSheets(o);
+    closeShipModal();
+    renderList();
+    showToast(`📦 #${id} 出貨資料已儲存`, 'ok');
+    btn.disabled = false; btn.textContent = '📦 確認出貨';
+}
+
+// ═══════════════════════════════════════════════════════
+//  CNY Converter (modal)
+// ═══════════════════════════════════════════════════════
+function onCnyChange() {
+    const cny = parseFloat(document.getElementById('f-cost-cny').value) || 0;
+    const box  = document.getElementById('cny-conv');
+    if (cny > 0 && cnyRate) {
+        const twd = Math.round(cny * cnyRate);
+        document.getElementById('cny-from').textContent   = '¥' + cny.toLocaleString();
+        document.getElementById('cny-to').textContent     = 'NT$' + twd.toLocaleString();
+        document.getElementById('cny-rate-lbl').textContent = `(匯率 ${cnyRate.toFixed(4)})`;
+        box.classList.add('visible');
+    } else {
+        box.classList.remove('visible');
+    }
+    updateProfitPreview();
+}
+
+function applyCnyConv() {
+    const cny = parseFloat(document.getElementById('f-cost-cny').value) || 0;
+    if (cny > 0 && cnyRate) {
+        document.getElementById('f-cost-twd').value = Math.round(cny * cnyRate);
+        updateProfitPreview();
+        showToast('✅ 已套用換算結果', 'ok');
+    }
+}
+
+function updateProfitPreview() {
+    const sale    = parseFloat(document.getElementById('f-sale').value)     || 0;
+    const costTwd = parseFloat(document.getElementById('f-cost-twd').value) || 0;
+    const preview = document.getElementById('profit-preview');
+    if (!sale && !costTwd) { preview.classList.remove('visible'); return; }
+    preview.classList.add('visible');
+    const profit = sale - costTwd;
+    document.getElementById('pp-sale').textContent   = 'NT$' + sale.toLocaleString();
+    document.getElementById('pp-cost').textContent   = '- NT$' + costTwd.toLocaleString();
+    const profitEl = document.getElementById('pp-profit');
+    profitEl.textContent = (profit >= 0 ? '+' : '') + 'NT$' + profit.toLocaleString();
+    profitEl.className = profit > 0 ? 'pp-pos' : profit < 0 ? 'pp-neg' : '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  Google Sheets Sync
+// ═══════════════════════════════════════════════════════
+async function syncOrderToSheets(o) {
+    try {
+        await fetch(API_URL, {
+            method: 'POST', mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'addV2', id: o.id, buyer: o.buyer,
+                date: o.date, product: o.product,
+                sale: o.sale, cost_cny: o.costCny,
+                cost_twd: o.costTwd, stage: o.stage,
+                exchange_rate: cnyRate, note: o.note
+            })
+        });
+    } catch(e) {}
+}
+
+async function syncShipToSheets(o) {
+    try {
+        await fetch(API_URL, {
+            method: 'POST', mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updateShipV2', id: o.id,
+                stage: o.stage,
+                shipping_type: o.shippingType,
+                shipping_cost: o.shippingCost,
+                store: o.store, address: o.address,
+                receiver: o.receiver, phone: o.phone,
+                profit: (o.sale||0) - (o.costTwd||0) - (o.shippingCost||0)
+            })
+        });
+    } catch(e) {}
+}
+
+async function syncStageToSheets(id, stage) {
+    try {
+        await fetch(API_URL, {
+            method: 'POST', mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'updateStageV2', id, stage })
+        });
+    } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════
+//  Stats Page
+// ═══════════════════════════════════════════════════════
+function showPage(name, btn) {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const ol = document.getElementById('order-list');
+    const sp = document.getElementById('page-stats');
+    const tb = document.querySelector('.stage-tabs');
+    const ss = document.getElementById('stats-strip');
+    const sb = document.querySelector('.search-bar');
+    if (name === 'stats') {
+        ol.style.display = 'none'; sp.style.display = 'block';
+        tb.style.display = 'none'; ss.style.display = 'none'; sb.style.display = 'none';
+        renderStats();
+    } else {
+        ol.style.display = ''; sp.style.display = 'none';
+        tb.style.display = ''; ss.style.display = ''; sb.style.display = '';
+    }
+}
+
+function renderStats() {
+    renderStatsCards();
+    renderMonthlyChart();
+    renderBuyerChart();
+}
+
+function renderStatsCards() {
+    const done = orders.filter(o => o.stage === 'done' || o.stage === 'ship');
+    let sale = 0, cost = 0, profit = 0;
+    done.forEach(o => {
+        sale   += o.sale || 0;
+        cost   += (o.costTwd || 0) + (o.shippingCost || 0);
+        profit += (o.sale || 0) - (o.costTwd || 0) - (o.shippingCost || 0);
+    });
+    const margin = sale > 0 ? Math.round(profit / sale * 100) : 0;
+    document.getElementById('stats-cards').innerHTML = `
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">總銷售額</div>
+            <div style="font-size:20px;font-weight:700;color:var(--blue)">$${sale.toLocaleString()}</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">總成本</div>
+            <div style="font-size:20px;font-weight:700;color:var(--gold)">$${cost.toLocaleString()}</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">總利潤</div>
+            <div style="font-size:20px;font-weight:700;color:${profit>=0?'var(--green)':'var(--red)'}">${profit>=0?'+':'-'}$${Math.abs(profit).toLocaleString()}</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">利潤率</div>
+            <div style="font-size:20px;font-weight:700;color:var(--purple)">${margin}%</div>
+        </div>`;
+}
+
+function renderMonthlyChart() {
+    const map = {};
+    orders.forEach(o => {
+        if (!o.sale && !o.costTwd) return;
+        const m = (o.date||'').match(/^(\d+)\//);
+        const y = (o.date||'').match(/^\d{4}-0?(\d+)/);
+        const key = m ? m[1]+'月' : (y ? parseInt(y[1])+'月' : '?');
+        if (!map[key]) map[key] = 0;
+        map[key] += (o.sale||0) - (o.costTwd||0) - (o.shippingCost||0);
+    });
+    const entries = Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));
+    const maxV = Math.max(...entries.map(([,v])=>Math.abs(v)), 1);
+    document.getElementById('monthly-chart').innerHTML = entries.length
+        ? entries.map(([k,v]) => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <div style="width:50px;font-size:12px;color:var(--dim);text-align:right;">${k}</div>
+                <div style="flex:1;background:var(--s3);border-radius:4px;overflow:hidden;">
+                    <div style="height:24px;width:${Math.round(Math.abs(v)/maxV*90)}%;background:${v>=0?'linear-gradient(90deg,#1f6feb,#3fb950)':'var(--red)'};border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:white;font-size:12px;font-weight:700;min-width:60px;">
+                        ${v>=0?'+':'-'}$${Math.abs(v).toLocaleString()}
+                    </div>
+                </div>
+            </div>`)
+        .join('')
+        : '<div style="color:var(--dim);font-size:13px;text-align:center;padding:20px;">尚無資料</div>';
+}
+
+function renderBuyerChart() {
+    const map = {};
+    orders.forEach(o => {
+        if (!o.sale && !o.costTwd) return;
+        const p = (o.sale||0) - (o.costTwd||0) - (o.shippingCost||0);
+        map[o.buyer] = (map[o.buyer]||0) + p;
+    });
+    const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    const maxV = Math.max(...top.map(([,v])=>Math.abs(v)), 1);
+    document.getElementById('buyer-chart').innerHTML = top.length
+        ? top.map(([name,v]) => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <div style="width:60px;font-size:12px;color:var(--dim);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${name}">${name}</div>
+                <div style="flex:1;background:var(--s3);border-radius:4px;overflow:hidden;">
+                    <div style="height:24px;width:${Math.round(Math.abs(v)/maxV*90)}%;background:${v>=0?'linear-gradient(90deg,#059669,#4cd964)':'var(--red)'};border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:white;font-size:12px;font-weight:700;min-width:60px;">
+                        ${v>=0?'+':'-'}$${Math.abs(v).toLocaleString()}
+                    </div>
+                </div>
+            </div>`)
+        .join('')
+        : '<div style="color:var(--dim);font-size:13px;text-align:center;padding:20px;">尚無資料</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI Helpers
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='') {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+function showLoading(txt) {
+    document.getElementById('loading-text').textContent = txt||'處理中...';
+    document.getElementById('loading').classList.remove('hidden');
+}
+function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+
+// Close modals on outside tap
+document.getElementById('order-modal').addEventListener('click', e => { if (e.target === document.getElementById('order-modal')) closeOrderModal(); });
+document.getElementById('ship-modal').addEventListener('click',  e => { if (e.target === document.getElementById('ship-modal'))  closeShipModal(); });
+
+// ═══════════════════════════════════════════════════════
+//  Start
+// ═══════════════════════════════════════════════════════
+showLoading('啟動中...');
+boot();
+</script>
+</body>
+</html>
