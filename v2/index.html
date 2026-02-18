@@ -721,7 +721,9 @@ async function syncFromSheets() {
         const res = await fetch(API_URL, { signal: ctrl.signal });
         clearTimeout(t);
         if (!res.ok) return;
-        const raw = await res.json();
+        const json = await res.json();
+        // 新版 Apps Script 回傳 { status, data: [...] }，舊版直接回傳陣列
+        const raw = Array.isArray(json) ? json : (json.data || []);
 
         // 將舊版資料合併（只加入 localStorage 沒有的 id）
         const existIds = new Set(orders.map(o => o.id));
