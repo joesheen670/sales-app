@@ -14,7 +14,7 @@
 // ── ★ 必填：你的 Google Sheets ID ─────────────────────────
 // 從試算表網址複製：
 // https://docs.google.com/spreadsheets/d/【這裡】/edit
-var SPREADSHEET_ID  = "YOUR_SPREADSHEET_ID_HERE";
+var SPREADSHEET_ID  = "16-rOr0WPauJUFBNp1WTtwmxR-IgcpSuQ5sp5p7eSCUU";
 
 // ── 工作表名稱設定 ─────────────────────────────────────────
 var SHEET_ORDERS    = "sales_data"; // 原始舊版訂單
