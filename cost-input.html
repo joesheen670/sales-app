@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>成本輸入 Cost Input</title>
+    <style>
+        /* ══════════════════════════════════════
+           Reset & Base
+        ══════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        :root {
+            --bg:        #0d1117;
+            --surface:   #161b22;
+            --surface2:  #21262d;
+            --border:    rgba(255,255,255,0.1);
+            --red:       #e94560;
+            --green:     #3fb950;
+            --yellow:    #d29922;
+            --blue:      #58a6ff;
+            --orange:    #f78166;
+            --purple:    #bc8cff;
+            --text:      #e6edf3;
+            --text-dim:  #7d8590;
+            --cny-color: #e63946;
+            --twd-color: #2196f3;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ══════════════════════════════════════
+           Loading
+        ══════════════════════════════════════ */
+        .loading-overlay {
+            display: flex; position: fixed; inset: 0;
+            background: rgba(13,17,23,0.92);
+            z-index: 9999; flex-direction: column;
+            justify-content: center; align-items: center; gap: 14px;
+        }
+        .loading-overlay.hidden { display: none; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--blue);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: var(--text-dim); font-size: 14px; }
+
+        /* ══════════════════════════════════════
+           Toast
+        ══════════════════════════════════════ */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(70px);
+            background: var(--surface2); color: var(--text);
+            padding: 11px 22px; border-radius: 22px;
+            font-size: 13px; font-weight: 600;
+            border: 1px solid var(--border);
+            z-index: 5000; transition: transform .28s ease;
+            white-space: nowrap;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: var(--green); }
+        .toast.error   { border-color: var(--red); }
+
+        /* ══════════════════════════════════════
+           Top Bar
+        ══════════════════════════════════════ */
+        .topbar {
+            position: sticky; top: 0; z-index: 200;
+            background: rgba(13,17,23,0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 16px;
+            display: flex; align-items: center;
+            height: 56px; gap: 12px;
+        }
+        .topbar-title {
+            font-size: 16px; font-weight: 700; flex: 1;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .back-btn {
+            display: flex; align-items: center; gap: 6px;
+            text-decoration: none; color: var(--text-dim);
+            font-size: 13px; padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px; transition: all .2s;
+        }
+        .back-btn:hover { color: var(--text); border-color: var(--blue); }
+
+        /* ══════════════════════════════════════
+           Exchange Rate Banner
+        ══════════════════════════════════════ */
+        .rate-banner {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 16px;
+            display: flex; align-items: center; flex-wrap: wrap;
+            gap: 10px; font-size: 13px;
+        }
+        .rate-pill {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px; padding: 6px 14px;
+        }
+        .rate-flag { font-size: 18px; }
+        .rate-nums { display: flex; flex-direction: column; line-height: 1.2; }
+        .rate-main {
+            font-size: 15px; font-weight: 700; color: var(--blue);
+        }
+        .rate-sub { font-size: 11px; color: var(--text-dim); }
+        .rate-time { color: var(--text-dim); font-size: 12px; margin-left: auto; }
+        .rate-refresh {
+            background: none; border: 1px solid var(--border);
+            color: var(--text-dim); border-radius: 8px;
+            padding: 5px 10px; font-size: 12px; cursor: pointer;
+            transition: all .2s;
+        }
+        .rate-refresh:hover { color: var(--blue); border-color: var(--blue); }
+        .rate-badge {
+            font-size: 11px; padding: 2px 8px;
+            border-radius: 10px; font-weight: 600;
+        }
+        .rate-badge.live { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+        .rate-badge.cached { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
+        .rate-badge.error  { background: rgba(233,69,96,0.15);  color: var(--red);    border: 1px solid rgba(233,69,96,0.3); }
+
+        /* ══════════════════════════════════════
+           Summary Strip
+        ══════════════════════════════════════ */
+        .summary-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .summary-cell {
+            padding: 14px 12px; text-align: center;
+            border-right: 1px solid var(--border);
+        }
+        .summary-cell:last-child { border-right: none; }
+        .summary-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+        .summary-value { font-size: 18px; font-weight: 700; }
+        .sv-sale   { color: var(--blue); }
+        .sv-cost   { color: var(--orange); }
+        .sv-profit { color: var(--green); }
+        .sv-margin { color: var(--purple); }
+        .summary-value.negative { color: var(--red); }
+
+        /* ══════════════════════════════════════
+           Filter Bar
+        ══════════════════════════════════════ */
+        .filter-bar {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            padding: 12px 16px; background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .filter-bar input,
+        .filter-bar select {
+            flex: 1; min-width: 110px;
+            padding: 8px 12px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text);
+            font-size: 13px; outline: none;
+        }
+        .filter-bar input::placeholder { color: var(--text-dim); }
+        .filter-bar select option { background: var(--surface2); }
+        .filter-bar input:focus,
+        .filter-bar select:focus { border-color: var(--blue); }
+
+        /* ══════════════════════════════════════
+           Order Cards
+        ══════════════════════════════════════ */
+        .order-list {
+            padding: 12px 16px 100px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .order-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: border-color .2s;
+        }
+        .order-card.has-data  { border-color: rgba(63,185,80,0.3); }
+        .order-card.is-dirty  { border-color: rgba(210,153,34,0.5); }
+        .order-card.is-saving { opacity: .6; pointer-events: none; }
+
+        /* Card Header */
+        .card-header {
+            display: flex; align-items: center;
+            padding: 10px 14px; gap: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .card-id {
+            font-size: 12px; color: var(--text-dim);
+            background: var(--surface2);
+            padding: 2px 8px; border-radius: 6px;
+            flex-shrink: 0;
+        }
+        .card-buyer { font-weight: 600; flex: 1; font-size: 15px; }
+        .card-date  { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+        .card-arrow {
+            color: var(--text-dim); font-size: 12px;
+            transition: transform .2s; flex-shrink: 0;
+        }
+        .order-card.expanded .card-arrow { transform: rotate(180deg); }
+
+        .shipping-tag {
+            font-size: 11px; padding: 2px 8px; border-radius: 8px;
+            font-weight: 600; flex-shrink: 0;
+        }
+        .tag-711    { background: rgba(255,149,0,.15);  color: #ff9500; }
+        .tag-family { background: rgba(63,185,80,.15);  color: var(--green); }
+        .tag-home   { background: rgba(88,166,255,.15); color: var(--blue); }
+
+        /* Profit preview in header */
+        .card-profit-badge {
+            font-size: 12px; font-weight: 700; padding: 2px 8px;
+            border-radius: 8px; flex-shrink: 0;
+        }
+        .badge-profit { background: rgba(63,185,80,.15);  color: var(--green); }
+        .badge-loss   { background: rgba(233,69,96,.15);  color: var(--red); }
+        .badge-zero   { background: rgba(255,255,255,.05); color: var(--text-dim); }
+
+        /* Card Body */
+        .card-body {
+            display: none;
+            padding: 4px 14px 16px;
+            border-top: 1px solid var(--border);
+        }
+        .order-card.expanded .card-body { display: block; }
+
+        /* Input rows */
+        .input-section { margin-top: 12px; }
+        .input-section-title {
+            font-size: 11px; font-weight: 700;
+            color: var(--text-dim); text-transform: uppercase;
+            letter-spacing: .5px; margin-bottom: 8px;
+        }
+        .input-row {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 10px;
+        }
+        .input-label {
+            font-size: 13px; color: var(--text-dim);
+            width: 80px; flex-shrink: 0;
+        }
+        .input-field-wrap { flex: 1; position: relative; }
+        .input-currency {
+            position: absolute; left: 10px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 13px; font-weight: 700;
+            pointer-events: none;
+        }
+        .ic-cny { color: var(--cny-color); }
+        .ic-twd { color: var(--twd-color); }
+
+        .amount-input {
+            width: 100%;
+            padding: 9px 10px 9px 32px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text); font-size: 15px;
+            outline: none; transition: border-color .2s;
+        }
+        .amount-input:focus { border-color: var(--blue); }
+        .amount-input.cny-field:focus { border-color: var(--cny-color); }
+        .amount-input.twd-field:focus { border-color: var(--twd-color); }
+
+        /* CNY → TWD converter */
+        .cny-converter {
+            margin-top: -4px; margin-bottom: 8px;
+            padding: 8px 12px;
+            background: rgba(230,57,70,.06);
+            border: 1px solid rgba(230,57,70,.2);
+            border-radius: 8px;
+            display: none;
+            align-items: center; gap: 8px;
+            flex-wrap: wrap;
+        }
+        .cny-converter.visible { display: flex; }
+        .conv-arrow { color: var(--text-dim); font-size: 16px; }
+        .conv-result {
+            font-size: 15px; font-weight: 700; color: var(--twd-color);
+        }
+        .conv-rate { font-size: 11px; color: var(--text-dim); }
+        .conv-apply {
+            margin-left: auto;
+            background: var(--twd-color); color: white;
+            border: none; border-radius: 6px;
+            padding: 5px 12px; font-size: 12px; font-weight: 700;
+            cursor: pointer; transition: opacity .2s;
+        }
+        .conv-apply:hover { opacity: .8; }
+
+        /* Profit breakdown */
+        .profit-breakdown {
+            margin-top: 12px;
+            background: var(--surface2);
+            border-radius: 8px; padding: 12px;
+            display: none;
+        }
+        .profit-breakdown.visible { display: block; }
+        .pb-row {
+            display: flex; justify-content: space-between;
+            font-size: 13px; padding: 3px 0;
+            color: var(--text-dim);
+        }
+        .pb-row.total {
+            border-top: 1px solid var(--border);
+            margin-top: 6px; padding-top: 8px;
+            font-size: 15px; font-weight: 700;
+            color: var(--text);
+        }
+        .pb-val { font-weight: 600; }
+        .pb-pos  { color: var(--green); }
+        .pb-neg  { color: var(--red); }
+
+        /* Save button */
+        .save-btn {
+            width: 100%; margin-top: 14px;
+            padding: 12px;
+            background: linear-gradient(135deg, #1f6feb, #58a6ff);
+            color: white; border: none;
+            border-radius: 10px; font-size: 15px; font-weight: 700;
+            cursor: pointer; transition: opacity .2s;
+        }
+        .save-btn:hover { opacity: .85; }
+        .save-btn:disabled { opacity: .4; cursor: default; }
+        .save-btn.saved-state {
+            background: linear-gradient(135deg, #1a7f37, #3fb950);
+        }
+
+        /* ══════════════════════════════════════
+           Empty / No result
+        ══════════════════════════════════════ */
+        .no-orders {
+            text-align: center; padding: 60px 20px;
+            color: var(--text-dim); font-size: 15px;
+        }
+        .no-orders span { font-size: 40px; display: block; margin-bottom: 12px; }
+
+        /* ══════════════════════════════════════
+           Batch save bottom bar
+        ══════════════════════════════════════ */
+        .fixbar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(13,17,23,0.97);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border);
+            padding: 10px 16px;
+            display: flex; gap: 10px; align-items: center;
+        }
+        .fixbar-info {
+            flex: 1; font-size: 13px; color: var(--text-dim);
+        }
+        .fixbar-info strong { color: var(--text); }
+        .fixbar-save {
+            background: var(--green); color: white;
+            border: none; border-radius: 10px;
+            padding: 11px 22px; font-size: 14px; font-weight: 700;
+            cursor: pointer; transition: opacity .2s;
+        }
+        .fixbar-save:disabled { opacity: .4; cursor: default; }
+        .fixbar-save:hover:not(:disabled) { opacity: .85; }
+
+        @media (max-width: 420px) {
+            .summary-strip { grid-template-columns: repeat(2,1fr); }
+            .summary-cell:nth-child(2) { border-right: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">載入中...</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Top Bar -->
+<div class="topbar">
+    <div class="topbar-title">🧾 成本輸入</div>
+    <a href="index.html" class="back-btn">← 銷售紀錄</a>
+    <a href="finance.html" class="back-btn">📊 財務總覽</a>
+</div>
+
+<!-- Exchange Rate Banner -->
+<div class="rate-banner">
+    <div class="rate-pill">
+        <span class="rate-flag">🇨🇳</span>
+        <div class="rate-nums">
+            <span class="rate-main" id="rate-display">載入中...</span>
+            <span class="rate-sub">1 CNY = ? TWD</span>
+        </div>
+    </div>
+    <span class="rate-badge" id="rate-badge">--</span>
+    <span class="rate-time" id="rate-time"></span>
+    <button class="rate-refresh" onclick="fetchExchangeRate(true)">🔄 更新匯率</button>
+</div>
+
+<!-- Summary -->
+<div class="summary-strip">
+    <div class="summary-cell">
+        <div class="summary-label">總銷售 TWD</div>
+        <div class="summary-value sv-sale"  id="s-sale">$0</div>
+    </div>
+    <div class="summary-cell">
+        <div class="summary-label">總成本 TWD</div>
+        <div class="summary-value sv-cost"  id="s-cost">$0</div>
+    </div>
+    <div class="summary-cell">
+        <div class="summary-label">總利潤 TWD</div>
+        <div class="summary-value sv-profit" id="s-profit">$0</div>
+    </div>
+    <div class="summary-cell">
+        <div class="summary-label">利潤率</div>
+        <div class="summary-value sv-margin" id="s-margin">0%</div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+    <input type="text" id="f-search" placeholder="🔍 搜尋買家 / 編號..." oninput="applyFilter()">
+    <select id="f-month" onchange="applyFilter()">
+        <option value="">全部月份</option>
+    </select>
+    <select id="f-status" onchange="applyFilter()">
+        <option value="">全部狀態</option>
+        <option value="done">✅ 已填成本</option>
+        <option value="todo">⬜ 未填成本</option>
+    </select>
+</div>
+
+<!-- Order List -->
+<div class="order-list" id="order-list">
+    <div class="no-orders"><span>📭</span>載入訂單中...</div>
+</div>
+
+<!-- Bottom Bar -->
+<div class="fixbar" id="fixbar">
+    <div class="fixbar-info" id="fixbar-info">
+        <strong id="dirty-count">0</strong> 筆已修改未儲存
+    </div>
+    <button class="fixbar-save" id="fixbar-btn" onclick="saveAllDirty()" disabled>💾 全部儲存</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  設定
+// ═══════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbxAjT6RSzctFMWH-aGjnZ-QMB-M6IDVWwzAh54Hy-4GgnGmtShUilU4dIKax7V6EH_viA/exec';
+
+// 多個免費匯率 API，依序嘗試避免單點失效
+const RATE_APIS = [
+    'https://api.frankfurter.app/latest?from=CNY&to=TWD',
+    'https://open.er-api.com/v6/latest/CNY',
+    'https://api.exchangerate-api.com/v4/latest/CNY'
+];
+
+const RATE_CACHE_KEY    = 'cny_twd_rate';
+const RATE_CACHE_TS_KEY = 'cny_twd_rate_ts';
+const CACHE_TTL_MS      = 30 * 60 * 1000; // 30分鐘
+
+// ═══════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════
+let salesData    = [];
+let financeData  = {};   // id → { sale, costCny, costTwd, shippingCost }
+let dirtySet     = new Set();
+let cnyToTwd     = null;  // 目前匯率
+let filteredIds  = [];
+
+// ═══════════════════════════════════════════════════════
+//  啟動
+// ═══════════════════════════════════════════════════════
+async function init() {
+    loadFinanceLocal();
+    const [, ] = await Promise.all([
+        loadSalesData(),
+        fetchExchangeRate(false)
+    ]);
+    populateMonthFilter();
+    applyFilter();
+    hideLoading();
+}
+
+// ═══════════════════════════════════════════════════════
+//  匯率抓取
+// ═══════════════════════════════════════════════════════
+async function fetchExchangeRate(forceRefresh = false) {
+    // 先嘗試快取
+    if (!forceRefresh) {
+        const cached = localStorage.getItem(RATE_CACHE_KEY);
+        const cachedTs = parseInt(localStorage.getItem(RATE_CACHE_TS_KEY) || '0');
+        if (cached && (Date.now() - cachedTs) < CACHE_TTL_MS) {
+            cnyToTwd = parseFloat(cached);
+            updateRateUI(cnyToTwd, 'cached', new Date(cachedTs));
+            return;
+        }
+    }
+
+    setRateBadge('loading');
+    let rate = null;
+
+    for (const apiUrl of RATE_APIS) {
+        try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 8000);
+            const res = await fetch(apiUrl, { signal: ctrl.signal });
+            clearTimeout(t);
+            if (!res.ok) continue;
+            const json = await res.json();
+
+            // Frankfurter 格式
+            if (json.rates && json.rates.TWD) {
+                rate = parseFloat(json.rates.TWD);
+                break;
+            }
+            // er-api / exchangerate-api 格式
+            if (json.rates && json.rates.TWD) {
+                rate = parseFloat(json.rates.TWD);
+                break;
+            }
+        } catch(e) {
+            // 繼續下一個 API
+        }
+    }
+
+    if (rate && rate > 0) {
+        cnyToTwd = rate;
+        localStorage.setItem(RATE_CACHE_KEY, rate.toString());
+        localStorage.setItem(RATE_CACHE_TS_KEY, Date.now().toString());
+        updateRateUI(rate, 'live', new Date());
+        if (forceRefresh) showToast('✅ 匯率已更新', 'success');
+    } else {
+        // 最後嘗試快取
+        const cached = localStorage.getItem(RATE_CACHE_KEY);
+        if (cached) {
+            cnyToTwd = parseFloat(cached);
+            const ts = parseInt(localStorage.getItem(RATE_CACHE_TS_KEY) || '0');
+            updateRateUI(cnyToTwd, 'error', new Date(ts));
+            if (forceRefresh) showToast('⚠️ 無法更新，使用上次快取匯率', 'error');
+        } else {
+            // 預設備用匯率（台灣央行約值）
+            cnyToTwd = 4.43;
+            updateRateUI(cnyToTwd, 'error', null);
+            if (forceRefresh) showToast('⚠️ 無法取得匯率，使用預設值 4.43', 'error');
+        }
+    }
+}
+
+function updateRateUI(rate, status, date) {
+    document.getElementById('rate-display').textContent = '1 CNY = ' + rate.toFixed(4) + ' TWD';
+    setRateBadge(status);
+    if (date) {
+        const hhmm = date.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
+        document.getElementById('rate-time').textContent = '更新：' + hhmm;
+    }
+    // 重新整理所有展開的轉換器
+    document.querySelectorAll('.cny-converter.visible').forEach(el => {
+        const id = el.closest('.order-card').dataset.id;
+        if (id) refreshConverter(id);
+    });
+}
+
+function setRateBadge(status) {
+    const badge = document.getElementById('rate-badge');
+    if (status === 'live')    { badge.textContent = '● 即時'; badge.className = 'rate-badge live'; }
+    else if (status === 'cached') { badge.textContent = '● 快取'; badge.className = 'rate-badge cached'; }
+    else if (status === 'loading'){ badge.textContent = '載入中'; badge.className = 'rate-badge'; }
+    else                          { badge.textContent = '⚠ 備用';  badge.className = 'rate-badge error'; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  載入訂單
+// ═══════════════════════════════════════════════════════
+async function loadSalesData() {
+    showLoading('載入訂單資料...');
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 30000);
+        const res = await fetch(API_URL, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const raw = await res.json();
+        salesData = raw.map(d => ({
+            id:       String(d.id || ''),
+            date:     String(d.date || ''),
+            buyer:    String(d.buyer || ''),
+            shipping: String(d.shipping || ''),
+            region:   String(d.region || ''),
+        }));
+    } catch(e) {
+        showToast('⚠️ 無法載入訂單：' + e.message, 'error');
+        salesData = [];
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Local 財務資料
+// ═══════════════════════════════════════════════════════
+function loadFinanceLocal() {
+    financeData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('finance_')) {
+            const id = key.replace('finance_', '');
+            try { financeData[id] = JSON.parse(localStorage.getItem(key)); } catch(e) {}
+        }
+    }
+}
+
+function getFinance(id) {
+    if (financeData[id]) return financeData[id];
+    return { sale: 0, costCny: 0, costTwd: 0, shippingCost: extractShippingCost(id) };
+}
+
+function saveFinanceLocal(id, data) {
+    localStorage.setItem('finance_' + id, JSON.stringify(data));
+    financeData[id] = data;
+}
+
+// ═══════════════════════════════════════════════════════
+//  工具
+// ═══════════════════════════════════════════════════════
+function extractShippingCost(id) {
+    const rec = salesData.find(d => d.id === id);
+    if (!rec) return 0;
+    const m = rec.shipping.match(/\((\d+)\)/);
+    return m ? parseInt(m[1]) : 0;
+}
+
+function getShippingType(s) {
+    if (!s) return '其他';
+    if (s.includes('7-11')) return '7-11';
+    if (s.includes('全家'))  return '全家';
+    if (s.includes('宅配'))  return '宅配';
+    return '其他';
+}
+
+function calcProfit(f) {
+    const costTwd = f.costTwd || (cnyToTwd ? Math.round((f.costCny || 0) * cnyToTwd) : 0);
+    return (f.sale || 0) - costTwd - (f.shippingCost || 0);
+}
+
+function hasCostData(f) {
+    return (f.sale || 0) > 0 || (f.costCny || 0) > 0 || (f.costTwd || 0) > 0;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Filter & Render
+// ═══════════════════════════════════════════════════════
+function applyFilter() {
+    const search = document.getElementById('f-search').value.toLowerCase().trim();
+    const month  = document.getElementById('f-month').value;
+    const status = document.getElementById('f-status').value;
+
+    filteredIds = salesData
+        .filter(rec => {
+            if (search && !rec.buyer.toLowerCase().includes(search) && !rec.id.includes(search)) return false;
+            if (month) {
+                const m = rec.date.match(/^(\d+)\//);
+                const ym = rec.date.match(/^\d{4}-0?(\d+)/);
+                const recM = m ? m[1] : (ym ? parseInt(ym[1]).toString() : '');
+                if (recM !== month) return false;
+            }
+            if (status) {
+                const f = getFinance(rec.id);
+                const done = hasCostData(f);
+                if (status === 'done' && !done) return false;
+                if (status === 'todo' &&  done) return false;
+            }
+            return true;
+        })
+        .map(r => r.id);
+
+    renderList();
+    updateSummary();
+}
+
+function renderList() {
+    const container = document.getElementById('order-list');
+    if (filteredIds.length === 0) {
+        container.innerHTML = '<div class="no-orders"><span>🔍</span>沒有符合條件的訂單</div>';
+        return;
+    }
+
+    container.innerHTML = filteredIds.map(id => buildCard(id)).join('');
+}
+
+function buildCard(id) {
+    const rec  = salesData.find(d => d.id === id);
+    if (!rec) return '';
+    const f     = getFinance(id);
+    const type  = getShippingType(rec.shipping);
+    const tagCls = type === '7-11' ? 'tag-711' : type === '全家' ? 'tag-family' : 'tag-home';
+    const profit = calcProfit(f);
+    const dirty   = dirtySet.has(id);
+    const hasCost = hasCostData(f);
+
+    let profitBadge = '';
+    if (hasCost) {
+        if (profit > 0)       profitBadge = `<span class="card-profit-badge badge-profit">+$${profit.toLocaleString()}</span>`;
+        else if (profit < 0)  profitBadge = `<span class="card-profit-badge badge-loss">-$${Math.abs(profit).toLocaleString()}</span>`;
+        else                  profitBadge = `<span class="card-profit-badge badge-zero">$0</span>`;
+    }
+
+    const cardClass = ['order-card', hasCost && !dirty ? 'has-data' : '', dirty ? 'is-dirty' : ''].filter(Boolean).join(' ');
+
+    return `<div class="${cardClass}" id="card-${id}" data-id="${id}">
+        <div class="card-header" onclick="toggleCard('${id}')">
+            <span class="card-id">#${rec.id}</span>
+            <span class="card-buyer">${rec.buyer}</span>
+            <span class="shipping-tag ${tagCls}">${type}</span>
+            ${profitBadge}
+            <span class="card-date">${rec.date}</span>
+            <span class="card-arrow">▼</span>
+        </div>
+        <div class="card-body" id="body-${id}">
+            ${buildCardBody(id, rec, f)}
+        </div>
+    </div>`;
+}
+
+function buildCardBody(id, rec, f) {
+    const scDefault = f.shippingCost || extractShippingCost(id);
+    const costTwdConverted = f.costCny && cnyToTwd ? Math.round(f.costCny * cnyToTwd) : (f.costTwd || 0);
+
+    const profit = (f.sale || 0) - costTwdConverted - scDefault;
+    const showBreakdown = hasCostData(f);
+
+    return `
+    <!-- 銷售金額 TWD -->
+    <div class="input-section">
+        <div class="input-section-title">💵 銷售金額（新台幣 TWD）</div>
+        <div class="input-row">
+            <span class="input-label">售價</span>
+            <div class="input-field-wrap">
+                <span class="input-currency ic-twd">NT$</span>
+                <input class="amount-input twd-field"
+                    id="sale-${id}" type="number" min="0" step="1"
+                    placeholder="0"
+                    value="${f.sale || ''}"
+                    oninput="onFieldChange('${id}')">
+            </div>
+        </div>
+    </div>
+
+    <!-- 商品成本 CNY -->
+    <div class="input-section">
+        <div class="input-section-title">🔴 商品成本（人民幣 CNY → 自動換算台幣）</div>
+        <div class="input-row">
+            <span class="input-label">成本 CNY</span>
+            <div class="input-field-wrap">
+                <span class="input-currency ic-cny">¥</span>
+                <input class="amount-input cny-field"
+                    id="cny-${id}" type="number" min="0" step="0.01"
+                    placeholder="0.00"
+                    value="${f.costCny || ''}"
+                    oninput="onCnyInput('${id}')">
+            </div>
+        </div>
+        <!-- 轉換結果 -->
+        <div class="cny-converter ${f.costCny > 0 ? 'visible' : ''}" id="conv-${id}">
+            <span style="color:var(--cny-color);font-weight:700;">¥${(f.costCny||0).toLocaleString()}</span>
+            <span class="conv-arrow">→</span>
+            <span class="conv-result" id="conv-result-${id}">
+                NT$${costTwdConverted.toLocaleString()}
+            </span>
+            <span class="conv-rate" id="conv-rate-${id}">
+                (匯率 ${cnyToTwd ? cnyToTwd.toFixed(4) : '?'})
+            </span>
+            <button class="conv-apply" onclick="applyConversion('${id}')">套用 →</button>
+        </div>
+        <!-- 手動覆寫 TWD 成本 -->
+        <div class="input-row">
+            <span class="input-label">成本 TWD</span>
+            <div class="input-field-wrap">
+                <span class="input-currency ic-twd">NT$</span>
+                <input class="amount-input twd-field"
+                    id="cost-twd-${id}" type="number" min="0" step="1"
+                    placeholder="自動換算"
+                    value="${costTwdConverted || ''}"
+                    oninput="onFieldChange('${id}')">
+            </div>
+        </div>
+    </div>
+
+    <!-- 運費 -->
+    <div class="input-section">
+        <div class="input-section-title">🚚 運費（新台幣 TWD）</div>
+        <div class="input-row">
+            <span class="input-label">運費</span>
+            <div class="input-field-wrap">
+                <span class="input-currency ic-twd">NT$</span>
+                <input class="amount-input twd-field"
+                    id="sc-${id}" type="number" min="0" step="1"
+                    placeholder="0"
+                    value="${scDefault || ''}"
+                    oninput="onFieldChange('${id}')">
+            </div>
+        </div>
+    </div>
+
+    <!-- 利潤明細 -->
+    <div class="profit-breakdown ${showBreakdown ? 'visible' : ''}" id="breakdown-${id}">
+        ${buildBreakdownHTML(f.sale||0, costTwdConverted, scDefault)}
+    </div>
+
+    <!-- 儲存 -->
+    <button class="save-btn ${hasCostData(f) && !dirtySet.has(id) ? 'saved-state' : ''}"
+        id="save-btn-${id}" onclick="saveCard('${id}')">
+        ${dirtySet.has(id) ? '💾 儲存這筆' : (hasCostData(f) ? '✅ 已儲存' : '💾 儲存')}
+    </button>`;
+}
+
+function buildBreakdownHTML(sale, costTwd, sc) {
+    const profit = sale - costTwd - sc;
+    const margin = sale > 0 ? Math.round(profit / sale * 100) : 0;
+    const profitCls = profit >= 0 ? 'pb-pos' : 'pb-neg';
+    const sign = profit >= 0 ? '+' : '';
+    return `
+        <div class="pb-row"><span>售價</span><span class="pb-val">NT$${(sale||0).toLocaleString()}</span></div>
+        <div class="pb-row"><span>成本（台幣）</span><span class="pb-val" style="color:var(--orange)">- NT$${(costTwd||0).toLocaleString()}</span></div>
+        <div class="pb-row"><span>運費</span><span class="pb-val" style="color:var(--orange)">- NT$${(sc||0).toLocaleString()}</span></div>
+        <div class="pb-row total"><span>利潤</span><span class="pb-val ${profitCls}">${sign}NT$${Math.abs(profit).toLocaleString()} (${margin}%)</span></div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Card 互動
+// ═══════════════════════════════════════════════════════
+function toggleCard(id) {
+    const card = document.getElementById('card-' + id);
+    card.classList.toggle('expanded');
+}
+
+function onCnyInput(id) {
+    const cnyVal = parseFloat(document.getElementById('cny-' + id).value) || 0;
+    const conv = document.getElementById('conv-' + id);
+
+    if (cnyVal > 0 && cnyToTwd) {
+        const twdVal = Math.round(cnyVal * cnyToTwd);
+        conv.classList.add('visible');
+        document.getElementById('conv-result-' + id).textContent = 'NT$' + twdVal.toLocaleString();
+        document.getElementById('conv-rate-' + id).textContent = '(匯率 ' + cnyToTwd.toFixed(4) + ')';
+        // 顯示 CNY 金額
+        conv.querySelector('span').textContent = '¥' + cnyVal.toLocaleString();
+    } else {
+        conv.classList.remove('visible');
+    }
+    onFieldChange(id);
+}
+
+function refreshConverter(id) {
+    const cnyInput = document.getElementById('cny-' + id);
+    if (cnyInput) onCnyInput(id);
+}
+
+function applyConversion(id) {
+    const cnyVal = parseFloat(document.getElementById('cny-' + id).value) || 0;
+    if (cnyVal > 0 && cnyToTwd) {
+        const twdVal = Math.round(cnyVal * cnyToTwd);
+        document.getElementById('cost-twd-' + id).value = twdVal;
+        showToast(`¥${cnyVal} → NT$${twdVal.toLocaleString()} 已套用`, 'success');
+        onFieldChange(id);
+    }
+}
+
+function onFieldChange(id) {
+    dirtySet.add(id);
+    const card = document.getElementById('card-' + id);
+    if (card) {
+        card.classList.add('is-dirty');
+        card.classList.remove('has-data');
+    }
+
+    // 即時更新利潤明細
+    const sale    = parseFloat(document.getElementById('sale-' + id).value)     || 0;
+    const costTwd = parseFloat(document.getElementById('cost-twd-' + id).value) || 0;
+    const sc      = parseFloat(document.getElementById('sc-' + id).value)       || 0;
+
+    const breakdown = document.getElementById('breakdown-' + id);
+    if (sale > 0 || costTwd > 0) {
+        breakdown.classList.add('visible');
+        breakdown.innerHTML = buildBreakdownHTML(sale, costTwd, sc);
+    } else {
+        breakdown.classList.remove('visible');
+    }
+
+    // 更新儲存按鈕
+    const btn = document.getElementById('save-btn-' + id);
+    if (btn) {
+        btn.textContent = '💾 儲存這筆';
+        btn.className = 'save-btn';
+        btn.disabled = false;
+    }
+
+    updateDirtyBar();
+    updateSummary();
+}
+
+// ═══════════════════════════════════════════════════════
+//  儲存
+// ═══════════════════════════════════════════════════════
+async function saveCard(id) {
+    const sale    = parseFloat(document.getElementById('sale-' + id).value)     || 0;
+    const costCny = parseFloat(document.getElementById('cny-' + id).value)      || 0;
+    const costTwd = parseFloat(document.getElementById('cost-twd-' + id).value) || 0;
+    const sc      = parseFloat(document.getElementById('sc-' + id).value)       || 0;
+
+    // 如果有 CNY 值但沒有 TWD，自動換算
+    const finalCostTwd = costTwd > 0 ? costTwd : (costCny > 0 && cnyToTwd ? Math.round(costCny * cnyToTwd) : 0);
+    const profit = sale - finalCostTwd - sc;
+
+    const data = { sale, costCny, costTwd: finalCostTwd, shippingCost: sc, profit, rate: cnyToTwd };
+    saveFinanceLocal(id, data);
+    dirtySet.delete(id);
+
+    const btn = document.getElementById('save-btn-' + id);
+    if (btn) { btn.disabled = true; btn.textContent = '同步中...'; }
+
+    const ok = await syncToSheets(id, data);
+
+    const card = document.getElementById('card-' + id);
+    if (card) {
+        card.classList.remove('is-dirty');
+        card.classList.add('has-data');
+    }
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = '✅ 已儲存';
+        btn.className = 'save-btn saved-state';
+    }
+
+    updateDirtyBar();
+    updateSummary();
+    showToast(ok ? `✅ #${id} 已儲存並同步` : `✅ #${id} 已本地儲存（同步失敗）`, ok ? 'success' : 'error');
+}
+
+async function saveAllDirty() {
+    const ids = [...dirtySet];
+    if (!ids.length) return;
+
+    document.getElementById('fixbar-btn').disabled = true;
+    document.getElementById('fixbar-btn').textContent = '儲存中...';
+
+    for (const id of ids) {
+        await saveCard(id);
+    }
+
+    document.getElementById('fixbar-btn').textContent = '💾 全部儲存';
+    document.getElementById('fixbar-btn').disabled = false;
+}
+
+async function syncToSheets(id, data) {
+    try {
+        await fetch(API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action:       'updateFinance',
+                id:           id,
+                sale:         data.sale,
+                cost_cny:     data.costCny,
+                cost_twd:     data.costTwd,
+                shipping_cost: data.shippingCost,
+                profit:       data.profit,
+                exchange_rate: data.rate
+            })
+        });
+        return true;
+    } catch(e) { return false; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Summary & Dirty bar
+// ═══════════════════════════════════════════════════════
+function updateSummary() {
+    let totSale = 0, totCost = 0, totProfit = 0;
+    salesData.forEach(rec => {
+        const f = getFinance(rec.id);
+        if (!hasCostData(f)) return;
+
+        // 讀取目前畫面輸入值（如果卡片已展開）
+        const saleEl = document.getElementById('sale-' + rec.id);
+        const costEl = document.getElementById('cost-twd-' + rec.id);
+        const scEl   = document.getElementById('sc-' + rec.id);
+
+        const sale    = saleEl ? (parseFloat(saleEl.value) || 0)  : (f.sale || 0);
+        const costTwd = costEl ? (parseFloat(costEl.value) || 0)  : (f.costTwd || 0);
+        const sc      = scEl   ? (parseFloat(scEl.value)   || 0)  : (f.shippingCost || 0);
+        const pr      = sale - costTwd - sc;
+
+        totSale   += sale;
+        totCost   += costTwd + sc;
+        totProfit += pr;
+    });
+
+    const margin = totSale > 0 ? Math.round(totProfit / totSale * 100) : 0;
+    document.getElementById('s-sale').textContent   = '$' + totSale.toLocaleString();
+    document.getElementById('s-cost').textContent   = '$' + totCost.toLocaleString();
+
+    const profitEl = document.getElementById('s-profit');
+    profitEl.textContent = (totProfit >= 0 ? '+$' : '-$') + Math.abs(totProfit).toLocaleString();
+    profitEl.classList.toggle('negative', totProfit < 0);
+
+    const marginEl = document.getElementById('s-margin');
+    marginEl.textContent = margin + '%';
+    marginEl.classList.toggle('negative', margin < 0);
+}
+
+function updateDirtyBar() {
+    const n = dirtySet.size;
+    document.getElementById('dirty-count').textContent = n;
+    document.getElementById('fixbar-btn').disabled = (n === 0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Filter helpers
+// ═══════════════════════════════════════════════════════
+function populateMonthFilter() {
+    const months = [...new Set(salesData.map(d => {
+        const m = d.date.match(/^(\d+)\//);
+        return m ? m[1] : null;
+    }).filter(Boolean))].sort((a,b) => parseInt(a)-parseInt(b));
+
+    const sel = document.getElementById('f-month');
+    sel.innerHTML = '<option value="">全部月份</option>' +
+        months.map(m => `<option value="${m}">${m}月</option>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI helpers
+// ═══════════════════════════════════════════════════════
+function showLoading(txt) {
+    document.getElementById('loading-text').textContent = txt || '處理中...';
+    document.getElementById('loading').classList.remove('hidden');
+}
+function hideLoading() {
+    document.getElementById('loading').classList.add('hidden');
+}
+
+let toastTimer = null;
+function showToast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Start
+// ═══════════════════════════════════════════════════════
+showLoading('啟動中...');
+init();
+</script>
+</body>
+</html>
