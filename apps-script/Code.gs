@@ -11,6 +11,11 @@
 //  4. 複製新的 Web App URL 到 index.html、v2/index.html 的 API_URL
 // ============================================================
 
+// ── ★ 必填：你的 Google Sheets ID ─────────────────────────
+// 從試算表網址複製：
+// https://docs.google.com/spreadsheets/d/【這裡】/edit
+var SPREADSHEET_ID  = "YOUR_SPREADSHEET_ID_HERE";
+
 // ── 工作表名稱設定 ─────────────────────────────────────────
 var SHEET_ORDERS    = "sales_data"; // 原始舊版訂單
 var SHEET_V2_ORDERS = "V2訂單";    // 新版訂單
@@ -257,7 +262,9 @@ function updateFinance(body) {
 
 /** 取得工作表，若不存在則建立並寫入標題 */
 function getOrCreateSheet(name, headers) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var ss    = SPREADSHEET_ID && SPREADSHEET_ID !== "YOUR_SPREADSHEET_ID_HERE"
+              ? SpreadsheetApp.openById(SPREADSHEET_ID)
+              : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
