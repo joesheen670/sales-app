@@ -13,13 +13,13 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
-    --bg:        #0d1117;
-    --s1:        #161b22;
-    --s2:        #21262d;
-    --s3:        #30363d;
-    --border:    rgba(255,255,255,0.1);
-    --text:      #e6edf3;
-    --dim:       #7d8590;
+    --bg:        #f0f4f8;
+    --s1:        #ffffff;
+    --s2:        #e8edf2;
+    --s3:        #d0d7de;
+    --border:    rgba(0,0,0,0.1);
+    --text:      #1c2128;
+    --dim:       #57606a;
 
     /* 狀態色 */
     --c-new:     #58a6ff;   /* 新訂單 */
@@ -47,7 +47,7 @@ body {
 ════════════════════════════════════════ */
 .loading-overlay {
     display: flex; position: fixed; inset: 0;
-    background: rgba(13,17,23,0.95); z-index: 9999;
+    background: rgba(240,244,248,0.95); z-index: 9999;
     flex-direction: column; justify-content: center; align-items: center; gap: 14px;
 }
 .loading-overlay.hidden { display: none; }
@@ -84,7 +84,7 @@ body {
 ════════════════════════════════════════ */
 .topbar {
     position: sticky; top: 0; z-index: 300;
-    background: rgba(13,17,23,0.97);
+    background: rgba(240,244,248,0.97);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
     height: 54px;
@@ -420,7 +420,7 @@ body {
 ════════════════════════════════════════ */
 .bottom-nav {
     position: fixed; bottom: 0; left: 0; right: 0;
-    background: rgba(13,17,23,0.97);
+    background: rgba(240,244,248,0.97);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border);
     display: flex; height: 64px;
