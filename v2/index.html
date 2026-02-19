@@ -456,6 +456,7 @@ body {
 <div class="topbar">
     <div class="topbar-title">📋 銷售管理</div>
     <span class="topbar-badge" id="rate-chip-top">匯率載入中...</span>
+    <button onclick="syncAllToSheets()" style="background:none;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;" title="強制同步所有訂單到 Sheets">☁️ 同步</button>
     <button class="btn-add" onclick="openNewOrderModal()">＋ 新訂單</button>
 </div>
 
@@ -1283,6 +1284,33 @@ async function syncStageToSheets(id, stage) {
             body: JSON.stringify({ action: 'updateStageV2', id, stage })
         });
     } catch(e) {}
+}
+
+async function syncAllToSheets() {
+    if (!confirm(`將本地 ${orders.length} 筆訂單全部同步到 Google Sheets？\n（已存在的會更新，不會重複新增）`)) return;
+    showLoading('同步中...');
+    let ok = 0, fail = 0;
+    for (const o of orders) {
+        try {
+            await fetch(API_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'addV2',
+                    id: o.id, buyer: o.buyer, date: o.date, product: o.product,
+                    sale: o.sale, costCny: o.costCny, costTwd: o.costTwd,
+                    shippingCost: o.shippingCost, shippingType: o.shippingType,
+                    store: o.store, address: o.address, receiver: o.receiver,
+                    phone: o.phone, shipNote: o.shipNote, note: o.note,
+                    stage: o.stage, createdAt: o.createdAt, paidAt: o.paidAt,
+                    shippedAt: o.shippedAt, doneAt: o.doneAt
+                })
+            });
+            ok++;
+        } catch(e) { fail++; }
+    }
+    hideLoading();
+    showToast(fail === 0 ? `✅ 同步完成 ${ok} 筆` : `⚠️ 完成 ${ok} 筆，失敗 ${fail} 筆`, fail === 0 ? 'ok' : 'err');
 }
 
 // ═══════════════════════════════════════════════════════

@@ -134,7 +134,17 @@ function getV2Orders() {
 
 function addV2Order(body) {
   var sheet = getOrCreateSheet(SHEET_V2_ORDERS, V2_HEADERS);
+  var rows  = sheet.getDataRange().getValues();
   var id    = body.id || String(Date.now());
+
+  // 已存在就更新（upsert）
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      return updateOrderV2(body);
+    }
+  }
+
+  // 不存在就新增
   sheet.appendRow([
     id,
     body.buyer         || "",
