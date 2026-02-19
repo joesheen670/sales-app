@@ -51,6 +51,7 @@ function doPost(e) {
     if      (action === "add")             result = addOrder(body);
     else if (action === "delete")          result = deleteOrder(body);
     else if (action === "addV2")           result = addV2Order(body);
+    else if (action === "updateOrderV2")   result = updateOrderV2(body);
     else if (action === "updateShipV2")    result = updateShipV2(body);
     else if (action === "updateStageV2")   result = updateStageV2(body);
     else if (action === "updateFinance")   result = updateFinance(body);
@@ -157,6 +158,25 @@ function addV2Order(body) {
     body.doneAt        || ""
   ]);
   return { id: id };
+}
+
+function updateOrderV2(body) {
+  var sheet   = getOrCreateSheet(SHEET_V2_ORDERS, V2_HEADERS);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var rows    = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(body.id)) {
+      var rowNum = i + 1;
+      var fields = ["buyer","product","date","sale","costCny","costTwd","note"];
+      fields.forEach(function(f) {
+        if (body[f] !== undefined) _setColValue(sheet, headers, rowNum, f, body[f]);
+      });
+      return { updated: body.id };
+    }
+  }
+  // 找不到就新增
+  return addV2Order(body);
 }
 
 function updateShipV2(body) {

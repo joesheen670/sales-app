@@ -1044,6 +1044,7 @@ async function saveOrder() {
                 date: dateVal, note: document.getElementById('f-note').value.trim()
             };
         }
+        syncOrderToSheets(orders[idx], true);
         showToast(`✅ #${editingId} 已更新`, 'ok');
     } else {
         const id = nextId();
@@ -1232,17 +1233,24 @@ function updateProfitPreview() {
 // ═══════════════════════════════════════════════════════
 //  Google Sheets Sync
 // ═══════════════════════════════════════════════════════
-async function syncOrderToSheets(o) {
+async function syncOrderToSheets(o, isEdit = false) {
     try {
         await fetch(API_URL, {
             method: 'POST', mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'addV2', id: o.id, buyer: o.buyer,
+                action: isEdit ? 'updateOrderV2' : 'addV2',
+                id: o.id, buyer: o.buyer,
                 date: o.date, product: o.product,
-                sale: o.sale, cost_cny: o.costCny,
-                cost_twd: o.costTwd, stage: o.stage,
-                exchange_rate: cnyRate, note: o.note
+                sale: o.sale, costCny: o.costCny,
+                costTwd: o.costTwd, stage: o.stage,
+                shippingCost: o.shippingCost,
+                shippingType: o.shippingType,
+                store: o.store, address: o.address,
+                receiver: o.receiver, phone: o.phone,
+                shipNote: o.shipNote, note: o.note,
+                createdAt: o.createdAt, paidAt: o.paidAt,
+                shippedAt: o.shippedAt, doneAt: o.doneAt
             })
         });
     } catch(e) {}
@@ -1256,11 +1264,12 @@ async function syncShipToSheets(o) {
             body: JSON.stringify({
                 action: 'updateShipV2', id: o.id,
                 stage: o.stage,
-                shipping_type: o.shippingType,
-                shipping_cost: o.shippingCost,
+                shippingType: o.shippingType,
+                shippingCost: o.shippingCost,
                 store: o.store, address: o.address,
                 receiver: o.receiver, phone: o.phone,
-                profit: (o.sale||0) - (o.costTwd||0) - (o.shippingCost||0)
+                shipNote: o.shipNote,
+                shippedAt: o.shippedAt
             })
         });
     } catch(e) {}
