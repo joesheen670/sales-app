@@ -751,7 +751,7 @@ async function syncFromSheets() {
                     costCny:      Number(d.costCny)       || 0,
                     costTwd:      Number(d.costTwd)       || 0,
                     shippingCost: Number(d.shippingCost)  || 0,
-                    shippingType: String(d.shippingType   || ''),
+                    shippingType: cleanShippingType(d.shippingType),
                     store:        String(d.store          || ''),
                     address:      String(d.address        || ''),
                     receiver:     String(d.receiver       || ''),
@@ -1067,6 +1067,15 @@ function displayDate(d) {
     return s;
 }
 
+// shippingType 若被錯誤存成日期字串，清空
+function cleanShippingType(v) {
+    const s = String(v || '').trim();
+    if (!s) return '';
+    // 偵測 ISO datetime / pure date 字串
+    if (/^\d{4}[-\/]\d{2}[-\/]\d{2}/.test(s)) return '';
+    return s;
+}
+
 function normalizeDate(d) {
     if (!d) return '';
     // YYYY/MM/DD → YYYY-MM-DD (新格式)
@@ -1373,7 +1382,7 @@ async function smartSync() {
                 costCny:      Number(d.costCny)       || 0,
                 costTwd:      Number(d.costTwd)       || 0,
                 shippingCost: Number(d.shippingCost)  || 0,
-                shippingType: String(d.shippingType   || ''),
+                shippingType: cleanShippingType(d.shippingType),
                 store:        String(d.store          || ''),
                 address:      String(d.address        || ''),
                 receiver:     String(d.receiver       || ''),
