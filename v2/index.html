@@ -1015,9 +1015,15 @@ function closeOrderModal() {
 
 function normalizeDate(d) {
     if (!d) return '';
-    // M/D/YYYY → YYYY-MM-DD
+    // YYYY/MM/DD → YYYY-MM-DD (新格式)
+    const m0 = d.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+    if (m0) return `${m0[1]}-${m0[2]}-${m0[3]}`;
+    // M/D/YYYY → YYYY-MM-DD (舊格式)
     const m1 = d.match(/^(\d+)\/(\d+)\/(\d{4})$/);
     if (m1) return `${m1[3]}-${m1[1].padStart(2,'0')}-${m1[2].padStart(2,'0')}`;
+    // YYYY/MM/DD (無補零) → YYYY-MM-DD
+    const m2 = d.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+    if (m2) return `${m2[1]}-${m2[2].padStart(2,'0')}-${m2[3].padStart(2,'0')}`;
     return d.slice(0,10);
 }
 
@@ -1025,7 +1031,8 @@ async function saveOrder() {
     const buyer = document.getElementById('f-buyer').value.trim();
     if (!buyer) { showToast('⚠️ 請填寫買家姓名', 'err'); return; }
 
-    const dateVal = document.getElementById('f-date').value;
+    // 日期格式轉為 YYYY/MM/DD 純文字
+    const dateVal = document.getElementById('f-date').value.replace(/-/g, '/');
     const sale    = parseFloat(document.getElementById('f-sale').value)     || 0;
     const costCny = parseFloat(document.getElementById('f-cost-cny').value) || 0;
     const costTwd = parseFloat(document.getElementById('f-cost-twd').value) || 0;

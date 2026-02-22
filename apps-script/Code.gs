@@ -27,9 +27,10 @@ function doGet(e) {
 
   try {
     var result;
-    if (action === "getV2")      result = getV2Orders();
+    if (action === "getV2" || action === "getAll") result = getV2Orders();
     else if (action === "getFinance") result = getFinanceData();
-    else                         result = getOrders();
+    else if (action === "getLegacy") result = getOrders();
+    else                             result = getV2Orders(); // 預設讀 V2訂單
 
     return ContentService
       .createTextOutput(JSON.stringify({ status: "ok", data: result }))
@@ -145,11 +146,16 @@ function addV2Order(body) {
   }
 
   // 不存在就新增
+  // 先將日期欄設為純文字格式，避免 Sheets 自動轉換
+  var dateColIdx = V2_HEADERS.indexOf("date") + 1;
+  var nextRow = sheet.getLastRow() + 1;
+  sheet.getRange(nextRow, dateColIdx).setNumberFormat("@");
+
   sheet.appendRow([
     id,
     body.buyer         || "",
     body.product       || "",
-    body.date          || "",
+    String(body.date   || ""),  // 強制純文字
     body.sale          || 0,
     body.costCny       || 0,
     body.costTwd       || 0,
@@ -178,10 +184,17 @@ function updateOrderV2(body) {
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === String(body.id)) {
       var rowNum = i + 1;
-      var fields = ["buyer","product","date","sale","costCny","costTwd","note"];
+      var fields = ["buyer","product","sale","costCny","costTwd","note"];
       fields.forEach(function(f) {
         if (body[f] !== undefined) _setColValue(sheet, headers, rowNum, f, body[f]);
       });
+      // 日期單獨處理，強制純文字
+      if (body.date !== undefined) {
+        var dc = headers.indexOf("date");
+        if (dc !== -1) {
+          sheet.getRange(rowNum, dc + 1).setNumberFormat("@").setValue(String(body.date));
+        }
+      }
       return { updated: body.id };
     }
   }
