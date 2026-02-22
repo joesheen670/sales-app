@@ -733,42 +733,51 @@ async function syncFromSheets() {
         // 新版 Apps Script 回傳 { status, data: [...] }，舊版直接回傳陣列
         const raw = Array.isArray(json) ? json : (json.data || []);
 
-        // 將舊版資料合併（只加入 localStorage 沒有的 id）
-        const existIds = new Set(orders.map(o => o.id));
-        let added = 0;
+        // Sheets 為主源：V2 訂單全部覆蓋本地；舊版只新增
+        const localMap = new Map(orders.map(o => [o.id, o]));
+        let added = 0, updated = 0;
         raw.forEach(d => {
             const id = String(d.id || '');
-            if (!id || existIds.has(id)) return;
+            if (!id) return;
 
-            // 判斷是否為 V2 格式（有 stage 欄位）
             const isV2 = d.stage !== undefined && d.stage !== '';
             if (isV2) {
-                // V2 訂單直接映射
-                orders.push({
+                const obj = {
                     id,
-                    buyer:        String(d.buyer       || ''),
-                    product:      String(d.product     || ''),
+                    buyer:        String(d.buyer        || ''),
+                    product:      String(d.product      || ''),
                     date:         displayDate(String(d.date || '')),
-                    sale:         Number(d.sale)         || 0,
-                    costCny:      Number(d.costCny)      || 0,
-                    costTwd:      Number(d.costTwd)      || 0,
-                    shippingCost: Number(d.shippingCost) || 0,
-                    shippingType: String(d.shippingType  || ''),
-                    store:        String(d.store         || ''),
-                    address:      String(d.address       || ''),
-                    receiver:     String(d.receiver      || ''),
-                    phone:        String(d.phone         || ''),
-                    shipNote:     String(d.shipNote      || ''),
-                    note:         String(d.note          || ''),
-                    stage:        String(d.stage         || 'done'),
-                    createdAt:    String(d.createdAt     || ''),
-                    paidAt:       String(d.paidAt        || ''),
-                    shippedAt:    String(d.shippedAt     || ''),
-                    doneAt:       String(d.doneAt        || '')
-                });
+                    sale:         Number(d.sale)          || 0,
+                    costCny:      Number(d.costCny)       || 0,
+                    costTwd:      Number(d.costTwd)       || 0,
+                    shippingCost: Number(d.shippingCost)  || 0,
+                    shippingType: String(d.shippingType   || ''),
+                    store:        String(d.store          || ''),
+                    address:      String(d.address        || ''),
+                    receiver:     String(d.receiver       || ''),
+                    phone:        String(d.phone          || ''),
+                    shipNote:     String(d.shipNote       || ''),
+                    note:         String(d.note           || ''),
+                    stage:        String(d.stage          || 'done'),
+                    createdAt:    String(d.createdAt      || ''),
+                    paidAt:       String(d.paidAt         || ''),
+                    shippedAt:    String(d.shippedAt      || ''),
+                    doneAt:       String(d.doneAt         || '')
+                };
+                if (localMap.has(id)) {
+                    // 已存在 → 用 Sheets 資料完整覆蓋（Sheets 是正確來源）
+                    const idx = orders.findIndex(o => o.id === id);
+                    orders[idx] = obj;
+                    updated++;
+                } else {
+                    orders.push(obj);
+                    added++;
+                }
+                localMap.set(id, obj);
             } else {
-                // 舊版格式（sales_data）
-                orders.push({
+                // 舊版格式（sales_data）— 只新增，不覆蓋
+                if (localMap.has(id)) return;
+                const legacyObj = {
                     id,
                     buyer:       String(d.buyer || ''),
                     product:     '',
@@ -782,14 +791,16 @@ async function syncFromSheets() {
                     stage:       'done',
                     createdAt:   String(d.date || ''),
                     paidAt: '', shippedAt: '', doneAt: ''
-                });
+                };
+                orders.push(legacyObj);
+                localMap.set(id, legacyObj);
+                added++;
             }
-            existIds.add(id);
-            added++;
         });
-        if (added > 0) {
+        if (added > 0 || updated > 0) {
             persistOrders();
-            showToast(`📥 從舊版匯入 ${added} 筆`, 'ok');
+            const msg = [added > 0 ? `新增 ${added} 筆` : '', updated > 0 ? `更新 ${updated} 筆` : ''].filter(Boolean).join('、');
+            showToast(`📥 從 Sheets 同步：${msg}`, 'ok');
         }
     } catch(e) { /* 靜默失敗 */ }
 }
