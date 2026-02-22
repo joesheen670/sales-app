@@ -582,6 +582,9 @@ body {
             <div class="modal-title">📦 安排出貨 — <span id="ship-buyer"></span></div>
             <button class="modal-close" onclick="closeShipModal()">✕</button>
         </div>
+        <div id="ship-autofill-hint" style="display:none;margin:0 16px 4px;padding:8px 12px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;font-size:12px;color:var(--blue);">
+            📂 已帶入上次出貨資料，確認後直接儲存即可
+        </div>
         <div class="modal-body">
             <div class="form-row">
                 <div class="form-group">
@@ -1186,13 +1189,50 @@ function openShipModal(id) {
     if (!o) return;
     shipTarget = id;
     document.getElementById('ship-buyer').textContent = `${o.buyer} (#${id})`;
-    document.getElementById('sh-type').value    = o.shippingType || '7-11';
-    document.getElementById('sh-cost').value    = o.shippingCost || 60;
-    document.getElementById('sh-store').value   = o.store || '';
-    document.getElementById('sh-addr').value    = o.address || '';
-    document.getElementById('sh-receiver').value= o.receiver || '';
-    document.getElementById('sh-phone').value   = o.phone || '';
-    document.getElementById('sh-note').value    = o.shipNote || '';
+
+    const hint = document.getElementById('ship-autofill-hint');
+
+    if (o.shippingType) {
+        // 已有出貨資料（修改模式）—直接帶入訂單自己的
+        document.getElementById('sh-type').value     = o.shippingType;
+        document.getElementById('sh-cost').value     = o.shippingCost || 60;
+        document.getElementById('sh-store').value    = o.store || '';
+        document.getElementById('sh-addr').value     = o.address || '';
+        document.getElementById('sh-receiver').value = o.receiver || '';
+        document.getElementById('sh-phone').value    = o.phone || '';
+        document.getElementById('sh-note').value     = o.shipNote || '';
+        hint.style.display = 'none';
+    } else {
+        // 全新出貨：尋找同一買家最近一次出貨成功的訂單
+        const prev = orders
+            .filter(x => x.id !== id &&
+                         x.buyer === o.buyer &&
+                         (x.stage === 'ship' || x.stage === 'done') &&
+                         x.shippingType)
+            .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }))[0];
+
+        if (prev) {
+            document.getElementById('sh-type').value     = prev.shippingType;
+            document.getElementById('sh-cost').value     = prev.shippingCost || 60;
+            document.getElementById('sh-store').value    = prev.store || '';
+            document.getElementById('sh-addr').value     = prev.address || '';
+            document.getElementById('sh-receiver').value = prev.receiver || '';
+            document.getElementById('sh-phone').value    = prev.phone || '';
+            document.getElementById('sh-note').value     = '';
+            hint.style.display = '';
+        } else {
+            // 這位買家第一次購買，不預填
+            document.getElementById('sh-type').value     = '7-11';
+            document.getElementById('sh-cost').value     = 60;
+            document.getElementById('sh-store').value    = '';
+            document.getElementById('sh-addr').value     = '';
+            document.getElementById('sh-receiver').value = '';
+            document.getElementById('sh-phone').value    = '';
+            document.getElementById('sh-note').value     = '';
+            hint.style.display = 'none';
+        }
+    }
+
     onShipTypeChange();
     updateShipPreview();
     document.getElementById('ship-modal').classList.add('active');
