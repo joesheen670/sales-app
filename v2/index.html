@@ -739,26 +739,51 @@ async function syncFromSheets() {
         raw.forEach(d => {
             const id = String(d.id || '');
             if (!id || existIds.has(id)) return;
-            // 轉換成新格式
-            orders.push({
-                id,
-                buyer:       String(d.buyer || ''),
-                product:     '',
-                date:        String(d.date || ''),
-                sale:        0,
-                costCny:     0,
-                costTwd:     0,
-                shippingCost: (() => { const m = String(d.shipping||'').match(/\((\d+)\)/); return m ? parseInt(m[1]) : 0; })(),
-                shippingType: (() => { const s = String(d.shipping||''); if (s.includes('7-11')) return '7-11'; if (s.includes('全家')) return '全家'; if (s.includes('宅配')) return '宅配'; return '其他'; })(),
-                store:       String(d.region || ''),
-                address:     String(d.full_address || ''),
-                note:        '',
-                stage:       'done',  // 舊資料預設為完成
-                createdAt:   d.date || '',
-                paidAt:      '',
-                shippedAt:   '',
-                doneAt:      ''
-            });
+
+            // 判斷是否為 V2 格式（有 stage 欄位）
+            const isV2 = d.stage !== undefined && d.stage !== '';
+            if (isV2) {
+                // V2 訂單直接映射
+                orders.push({
+                    id,
+                    buyer:        String(d.buyer       || ''),
+                    product:      String(d.product     || ''),
+                    date:         displayDate(String(d.date || '')),
+                    sale:         Number(d.sale)         || 0,
+                    costCny:      Number(d.costCny)      || 0,
+                    costTwd:      Number(d.costTwd)      || 0,
+                    shippingCost: Number(d.shippingCost) || 0,
+                    shippingType: String(d.shippingType  || ''),
+                    store:        String(d.store         || ''),
+                    address:      String(d.address       || ''),
+                    receiver:     String(d.receiver      || ''),
+                    phone:        String(d.phone         || ''),
+                    shipNote:     String(d.shipNote      || ''),
+                    note:         String(d.note          || ''),
+                    stage:        String(d.stage         || 'done'),
+                    createdAt:    String(d.createdAt     || ''),
+                    paidAt:       String(d.paidAt        || ''),
+                    shippedAt:    String(d.shippedAt     || ''),
+                    doneAt:       String(d.doneAt        || '')
+                });
+            } else {
+                // 舊版格式（sales_data）
+                orders.push({
+                    id,
+                    buyer:       String(d.buyer || ''),
+                    product:     '',
+                    date:        displayDate(String(d.date || '')),
+                    sale:        0, costCny: 0, costTwd: 0,
+                    shippingCost: (() => { const m = String(d.shipping||'').match(/\((\d+)\)/); return m ? parseInt(m[1]) : 0; })(),
+                    shippingType: (() => { const s = String(d.shipping||''); if (s.includes('7-11')) return '7-11'; if (s.includes('全家')) return '全家'; if (s.includes('宅配')) return '宅配'; return '其他'; })(),
+                    store:       String(d.region || ''),
+                    address:     String(d.full_address || ''),
+                    note:        '',
+                    stage:       'done',
+                    createdAt:   String(d.date || ''),
+                    paidAt: '', shippedAt: '', doneAt: ''
+                });
+            }
             existIds.add(id);
             added++;
         });
@@ -886,7 +911,7 @@ function buildCard(o) {
         <span class="card-id">#${o.id}</span>
         <span class="card-buyer">${o.buyer}</span>
         <span class="stage-badge ${stageCls[o.stage]}">${stageLbl[o.stage]||o.stage}</span>
-        <span class="card-date">${o.date||''}</span>
+        <span class="card-date">${displayDate(o.date)}</span>
         <span class="card-arrow">▼</span>
     </div>
     <div class="card-summary">
@@ -930,7 +955,7 @@ function buildDetail(o) {
         <div class="detail-title">訂單資訊</div>
         <div class="detail-grid">
             <div class="detail-field"><span class="df-label">買家</span><span class="df-value">${o.buyer}</span></div>
-            <div class="detail-field"><span class="df-label">日期</span><span class="df-value">${o.date||'–'}</span></div>
+            <div class="detail-field"><span class="df-label">日期</span><span class="df-value">${displayDate(o.date)||'–'}</span></div>
             ${o.product ? `<div class="detail-field full"><span class="df-label">商品</span><span class="df-value">${o.product}</span></div>` : ''}
             ${o.note ? `<div class="detail-field full"><span class="df-label">備註</span><span class="df-value dim">${o.note}</span></div>` : ''}
         </div>
@@ -979,9 +1004,11 @@ function openNewOrderModal() {
 
     // Reset
     const today = new Date();
+    const _pad  = n => String(n).padStart(2,'0');
+    const todayLocal = `${today.getFullYear()}-${_pad(today.getMonth()+1)}-${_pad(today.getDate())}`;
     document.getElementById('f-buyer').value    = '';
     document.getElementById('f-product').value  = '';
-    document.getElementById('f-date').value     = today.toISOString().slice(0,10);
+    document.getElementById('f-date').value     = todayLocal;
     document.getElementById('f-sale').value     = '';
     document.getElementById('f-cost-cny').value = '';
     document.getElementById('f-cost-twd').value = '';
@@ -1015,6 +1042,18 @@ function editOrder(id) {
 function closeOrderModal() {
     document.getElementById('order-modal').classList.remove('active');
     editingId = null;
+}
+
+// 只取日期部分顯示（YYYY/MM/DD），兼容 ISO datetime 字串
+function displayDate(d) {
+    if (!d) return '';
+    const s = String(d);
+    // YYYY/MM/DD 已是正確格式
+    if (/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s;
+    // YYYY-MM-DD 或 YYYY-MM-DDThh:mm:ss... 取前10碼再轉
+    const front = s.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(front)) return front.replace(/-/g, '/');
+    return s;
 }
 
 function normalizeDate(d) {
