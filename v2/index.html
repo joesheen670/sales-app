@@ -506,7 +506,11 @@ body {
             <div id="step-basic">
                 <div class="form-group">
                     <label>👤 買家姓名 *</label>
-                    <input type="text" id="f-buyer" placeholder="例：王小明">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" id="f-buyer" placeholder="例：王小明" style="flex:1;">
+                        <button type="button" onclick="triggerOCR()" title="拍照辨識" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--s2);cursor:pointer;font-size:16px;flex-shrink:0;">📷</button>
+                    </div>
+                    <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none;" onchange="handleOCRImage(this)">
                 </div>
                 <div class="form-group">
                     <label>📝 商品描述（選填）</label>
@@ -663,7 +667,7 @@ body {
 // ═══════════════════════════════════════════════════════
 //  Config
 // ═══════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycby23rA1UryXh0qfueg6OGEFQelcr2nJdkeDRPNhv0t7VC8TUhyx6_XOezZZgTXJx6gy2w/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbw31K2eZN6IOZel0nzpwt7PGHc-wKbYnRgayRbQOSYY5AThn63mOhiny6LF7W-PE4xM2w/exec';
 
 const RATE_APIS = [
     'https://api.frankfurter.app/latest?from=CNY&to=TWD',
@@ -1318,6 +1322,68 @@ async function syncAllToSheets() {
     }
     hideLoading();
     showToast(fail === 0 ? `✅ 同步完成 ${ok} 筆` : `⚠️ 完成 ${ok} 筆，失敗 ${fail} 筆`, fail === 0 ? 'ok' : 'err');
+}
+
+// ═══════════════════════════════════════════════════════
+//  OCR
+// ═══════════════════════════════════════════════════════
+let tesseractLoaded = false;
+
+function triggerOCR() {
+    if (!tesseractLoaded) {
+        showLoading('載入 OCR 引擎...');
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = () => { tesseractLoaded = true; hideLoading(); showToast('✓ OCR 已就緒，請選圖', 'ok'); document.getElementById('ocr-input').click(); };
+        s.onerror = () => { hideLoading(); showToast('⚠️ OCR 載入失敗', 'err'); };
+        document.head.appendChild(s);
+    } else {
+        document.getElementById('ocr-input').click();
+    }
+}
+
+async function handleOCRImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (typeof Tesseract === 'undefined') { showToast('⚠️ OCR 還在載入，請稍後', 'err'); return; }
+    showLoading('辨識中...');
+    try {
+        const worker = await Tesseract.createWorker('chi_tra+eng', 1, {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    document.getElementById('loading-text').textContent = '辨識中... ' + Math.round(m.progress * 100) + '%';
+                }
+            }
+        });
+        const { data: { text } } = await worker.recognize(file);
+        await worker.terminate();
+        hideLoading();
+        fillFromOCR(text);
+    } catch(e) {
+        hideLoading();
+        showToast('⚠️ 辨識失敗，請手動輸入', 'err');
+    }
+    input.value = '';
+}
+
+function fillFromOCR(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let buyer = '';
+
+    // 嘗試從第一行抓買家姓名（2-5 個中文字）
+    for (const line of lines) {
+        const clean = line.replace(/[^\u4e00-\u9fff]/g, '');
+        if (clean.length >= 2 && clean.length <= 5) {
+            buyer = clean;
+            break;
+        }
+    }
+    if (buyer) {
+        document.getElementById('f-buyer').value = buyer;
+        showToast(`✅ 辨識到買家：${buyer}`, 'ok');
+    } else {
+        showToast('⚠️ 無法辨識買家名稱，請手動輸入', 'err');
+    }
 }
 
 // ═══════════════════════════════════════════════════════
