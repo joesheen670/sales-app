@@ -817,13 +817,17 @@ async function syncFromSheets() {
 // ═══════════════════════════════════════════════════════
 async function fetchRate(force = false) {
     if (!force) {
-        const cached = localStorage.getItem(RATE_KEY);
+        const cached = parseFloat(localStorage.getItem(RATE_KEY));
         const ts = parseInt(localStorage.getItem(RATE_TS_KEY) || '0');
-        if (cached && Date.now() - ts < RATE_TTL) {
-            cnyRate = parseFloat(cached);
+        // 快取值必須在合理範圍內（1~20），否則視為髒資料強制重取
+        if (cached && cached > 1 && cached < 20 && Date.now() - ts < RATE_TTL) {
+            cnyRate = cached;
             updateRateUI();
             return;
         }
+        // 髒快取清掉
+        localStorage.removeItem(RATE_KEY);
+        localStorage.removeItem(RATE_TS_KEY);
     }
     for (const api of RATE_APIS) {
         try {
