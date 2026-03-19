@@ -673,8 +673,12 @@ body {
 const API_URL = 'https://script.google.com/macros/s/AKfycbw31K2eZN6IOZel0nzpwt7PGHc-wKbYnRgayRbQOSYY5AThn63mOhiny6LF7W-PE4xM2w/exec';
 
 const RATE_APIS = [
-    'https://api.frankfurter.app/latest?from=CNY&to=TWD',
-    'https://open.er-api.com/v6/latest/CNY'
+    // fawazahmed0 open-source currency API (primary)
+    { url: 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/cny.json', get: j => j.cny && j.cny.twd },
+    // Cloudflare Pages fallback for same project
+    { url: 'https://latest.currency-api.pages.dev/v1/currencies/cny.json',                        get: j => j.cny && j.cny.twd },
+    // er-api fallback (rates.TWD)
+    { url: 'https://open.er-api.com/v6/latest/CNY',                                               get: j => j.rates && j.rates.TWD }
 ];
 const RATE_KEY    = 'v2_cny_twd';
 const RATE_TS_KEY = 'v2_cny_twd_ts';
@@ -821,16 +825,16 @@ async function fetchRate(force = false) {
             return;
         }
     }
-    for (const url of RATE_APIS) {
+    for (const api of RATE_APIS) {
         try {
             const ctrl = new AbortController();
             const t = setTimeout(() => ctrl.abort(), 7000);
-            const res = await fetch(url, { signal: ctrl.signal });
+            const res = await fetch(api.url, { signal: ctrl.signal });
             clearTimeout(t);
             if (!res.ok) continue;
             const j = await res.json();
-            const r = j.rates && j.rates.TWD;
-            if (r) {
+            const r = api.get(j);
+            if (r && r > 1 && r < 20) {  // 合理範圍：1 CNY = 1~20 TWD
                 cnyRate = parseFloat(r);
                 localStorage.setItem(RATE_KEY, cnyRate);
                 localStorage.setItem(RATE_TS_KEY, Date.now());
